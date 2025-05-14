@@ -96,8 +96,76 @@ npm start
 
 - `POST /api/auth/register` - Register a new user
 - `POST /api/auth/login` - Login user and return JWT token
-- `GET /api/auth/me` - Get current user profile
-- `POST /api/auth/logout` - Logout user
+- `POST /api/auth/forgot-password` - Send password reset email
+- `POST /api/auth/reset-password` - Reset user password with token
+- `POST /api/auth/verify-email` - Verify user email address
+
+### Products
+
+- `GET /api/products` - Get all products
+- `GET /api/products/:id` - Get single product
+- `POST /api/products` - Create a new product (Admin, Manager)
+- `PUT /api/products/:id` - Update product (Admin, Manager)
+- `DELETE /api/products/:id` - Delete product (Admin)
+
+### Categories
+
+- `GET /api/categories` - Get all categories
+- `GET /api/categories/:id` - Get single category
+- `POST /api/categories` - Create a new category (Admin, Manager)
+- `PUT /api/categories/:id` - Update category (Admin, Manager)
+- `DELETE /api/categories/:id` - Delete category (Admin)
+- `GET /api/categories/:id/products` - Get all products in a category
+
+### Cart
+
+- `GET /api/cart` - Get user's cart
+- `POST /api/cart` - Add item to cart
+- `PUT /api/cart/:productId` - Update cart item quantity
+- `DELETE /api/cart/:productId` - Remove item from cart
+- `DELETE /api/cart` - Clear cart
+
+### Orders
+
+- `GET /api/orders` - Get all orders (Admin, Manager)
+- `GET /api/orders/my-orders` - Get orders for current user
+- `GET /api/orders/:id` - Get single order
+- `POST /api/orders` - Create a new order
+- `PUT /api/orders/:id/status` - Update order status (Admin, Manager)
+- `DELETE /api/orders/:id` - Cancel order (Admin or order owner)
+
+### User Management
+
+- `GET /api/users` - Get all users (Admin)
+- `GET /api/users/:id` - Get single user (Admin or own profile)
+- `PUT /api/users/:id` - Update user profile (Admin or own profile)
+- `DELETE /api/users/:id` - Delete user (Admin)
+
+### Profile Management
+
+- `GET /api/profile` - Get user profile with addresses, payment methods, and recent orders
+- `PUT /api/profile` - Update user profile
+- `POST /api/profile/addresses` - Add a new address
+- `PUT /api/profile/addresses/:id` - Update address
+- `DELETE /api/profile/addresses/:id` - Delete address
+- `POST /api/profile/payment-methods` - Add a new payment method
+- `DELETE /api/profile/payment-methods/:id` - Delete payment method
+- `GET /api/profile/orders` - Get user's order history with pagination
+
+### Analytics (Admin, Manager)
+
+- `GET /api/analytics/sales` - Get sales analytics by period (day, week, month, year)
+- `GET /api/analytics/products` - Get product performance analytics
+- `GET /api/analytics/customers` - Get customer analytics
+- `GET /api/analytics/dashboard` - Get dashboard overview statistics
+
+### Inventory Management
+
+- `GET /api/inventory` - Get inventory status for all products (Admin, Manager, Staff)
+- `GET /api/inventory/low-stock` - Get products with low stock (Admin, Manager, Staff)
+- `PUT /api/inventory/:id` - Update product inventory (Admin, Manager)
+- `POST /api/inventory/bulk-update` - Bulk update inventory (Admin, Manager)
+- `POST /api/inventory/stock-alert` - Configure stock alert thresholds (Admin, Manager)
 
 ### Products
 

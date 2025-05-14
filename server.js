@@ -14,6 +14,9 @@ const userRoutes = require('./routes/users');
 const analyticsRoutes = require('./routes/analytics');
 const inventoryRoutes = require('./routes/inventory');
 const authRoutes = require('./routes/auth');
+const cartRoutes = require('./routes/cart');
+const categoryRoutes = require('./routes/categories');
+const profileRoutes = require('./routes/profile');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -48,6 +51,9 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Root route
 app.get('/', (req, res) => {

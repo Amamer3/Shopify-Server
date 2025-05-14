@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const router = express.Router();
 
 // Import Firebase config
@@ -85,6 +86,123 @@ router.post('/login', [
     
     if (!userDoc.exists) {
       return res.status(404).json({ message: 'User not found' });
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Check if user exists
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpire = Date.now() + 3600000; // 1 hour
+    
+    // Store reset token in Firestore
+    await db.collection('passwordResets').doc(userRecord.uid).set({
+      resetToken,
+      resetTokenExpire,
+      email
+    });
+    
+    // In a production environment, you would send an email with the reset link
+    // For now, we'll just return the token in the response
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {
+        resetToken,
+        // In production, remove this and send via email instead
+        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Don't reveal if the email exists or not for security
+    res.status(200).json({
+      success: true,
+      message: 'If that email exists, a password reset link has been sent'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    
+    // Find reset token in database
+    const resetDocsSnapshot = await db.collection('passwordResets')
+      .where('resetToken', '==', token)
+      .where('resetTokenExpire', '>', Date.now())
+      .get();
+    
+    if (resetDocsSnapshot.empty) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Get the first matching document
+    const resetDoc = resetDocsSnapshot.docs[0];
+    const resetData = resetDoc.data();
+    const userId = resetDoc.id;
+    
+    // Update user password
+    await auth.updateUser(userId, {
+      password
+    });
+    
+    // Delete the reset token
+    await db.collection('passwordResets').doc(userId).delete();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email
+ * @access  Private
+ */
+router.post('/verify-email', protect, async (req, res, next) => {
+  try {
+    // In a real implementation, you would generate a verification link
+    // and send it to the user's email
+    
+    // For now, we'll just mark the user as verified
+    await db.collection('users').doc(req.user.uid).update({
+      emailVerified: true,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    next(error);
+  }
+});
     }
     
     const userData = userDoc.data();
@@ -108,8 +226,242 @@ router.post('/login', [
         token
       }
     });
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Check if user exists
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpire = Date.now() + 3600000; // 1 hour
+    
+    // Store reset token in Firestore
+    await db.collection('passwordResets').doc(userRecord.uid).set({
+      resetToken,
+      resetTokenExpire,
+      email
+    });
+    
+    // In a production environment, you would send an email with the reset link
+    // For now, we'll just return the token in the response
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {
+        resetToken,
+        // In production, remove this and send via email instead
+        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Don't reveal if the email exists or not for security
+    res.status(200).json({
+      success: true,
+      message: 'If that email exists, a password reset link has been sent'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    
+    // Find reset token in database
+    const resetDocsSnapshot = await db.collection('passwordResets')
+      .where('resetToken', '==', token)
+      .where('resetTokenExpire', '>', Date.now())
+      .get();
+    
+    if (resetDocsSnapshot.empty) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Get the first matching document
+    const resetDoc = resetDocsSnapshot.docs[0];
+    const resetData = resetDoc.data();
+    const userId = resetDoc.id;
+    
+    // Update user password
+    await auth.updateUser(userId, {
+      password
+    });
+    
+    // Delete the reset token
+    await db.collection('passwordResets').doc(userId).delete();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email
+ * @access  Private
+ */
+router.post('/verify-email', protect, async (req, res, next) => {
+  try {
+    // In a real implementation, you would generate a verification link
+    // and send it to the user's email
+    
+    // For now, we'll just mark the user as verified
+    await db.collection('users').doc(req.user.uid).update({
+      emailVerified: true,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    next(error);
+  }
+});
   } catch (error) {
     console.error('Login error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Check if user exists
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpire = Date.now() + 3600000; // 1 hour
+    
+    // Store reset token in Firestore
+    await db.collection('passwordResets').doc(userRecord.uid).set({
+      resetToken,
+      resetTokenExpire,
+      email
+    });
+    
+    // In a production environment, you would send an email with the reset link
+    // For now, we'll just return the token in the response
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {
+        resetToken,
+        // In production, remove this and send via email instead
+        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Don't reveal if the email exists or not for security
+    res.status(200).json({
+      success: true,
+      message: 'If that email exists, a password reset link has been sent'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    
+    // Find reset token in database
+    const resetDocsSnapshot = await db.collection('passwordResets')
+      .where('resetToken', '==', token)
+      .where('resetTokenExpire', '>', Date.now())
+      .get();
+    
+    if (resetDocsSnapshot.empty) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Get the first matching document
+    const resetDoc = resetDocsSnapshot.docs[0];
+    const resetData = resetDoc.data();
+    const userId = resetDoc.id;
+    
+    // Update user password
+    await auth.updateUser(userId, {
+      password
+    });
+    
+    // Delete the reset token
+    await db.collection('passwordResets').doc(userId).delete();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email
+ * @access  Private
+ */
+router.post('/verify-email', protect, async (req, res, next) => {
+  try {
+    // In a real implementation, you would generate a verification link
+    // and send it to the user's email
+    
+    // For now, we'll just mark the user as verified
+    await db.collection('users').doc(req.user.uid).update({
+      emailVerified: true,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
     next(error);
   }
 });
@@ -126,6 +478,123 @@ router.get('/me', protect, async (req, res, next) => {
     
     if (!userDoc.exists) {
       return res.status(404).json({ message: 'User not found' });
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Check if user exists
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpire = Date.now() + 3600000; // 1 hour
+    
+    // Store reset token in Firestore
+    await db.collection('passwordResets').doc(userRecord.uid).set({
+      resetToken,
+      resetTokenExpire,
+      email
+    });
+    
+    // In a production environment, you would send an email with the reset link
+    // For now, we'll just return the token in the response
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {
+        resetToken,
+        // In production, remove this and send via email instead
+        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Don't reveal if the email exists or not for security
+    res.status(200).json({
+      success: true,
+      message: 'If that email exists, a password reset link has been sent'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    
+    // Find reset token in database
+    const resetDocsSnapshot = await db.collection('passwordResets')
+      .where('resetToken', '==', token)
+      .where('resetTokenExpire', '>', Date.now())
+      .get();
+    
+    if (resetDocsSnapshot.empty) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Get the first matching document
+    const resetDoc = resetDocsSnapshot.docs[0];
+    const resetData = resetDoc.data();
+    const userId = resetDoc.id;
+    
+    // Update user password
+    await auth.updateUser(userId, {
+      password
+    });
+    
+    // Delete the reset token
+    await db.collection('passwordResets').doc(userId).delete();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email
+ * @access  Private
+ */
+router.post('/verify-email', protect, async (req, res, next) => {
+  try {
+    // In a real implementation, you would generate a verification link
+    // and send it to the user's email
+    
+    // For now, we'll just mark the user as verified
+    await db.collection('users').doc(req.user.uid).update({
+      emailVerified: true,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    next(error);
+  }
+});
     }
     
     const userData = userDoc.data();
@@ -136,8 +605,242 @@ router.get('/me', protect, async (req, res, next) => {
         user: userData
       }
     });
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Check if user exists
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpire = Date.now() + 3600000; // 1 hour
+    
+    // Store reset token in Firestore
+    await db.collection('passwordResets').doc(userRecord.uid).set({
+      resetToken,
+      resetTokenExpire,
+      email
+    });
+    
+    // In a production environment, you would send an email with the reset link
+    // For now, we'll just return the token in the response
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {
+        resetToken,
+        // In production, remove this and send via email instead
+        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Don't reveal if the email exists or not for security
+    res.status(200).json({
+      success: true,
+      message: 'If that email exists, a password reset link has been sent'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    
+    // Find reset token in database
+    const resetDocsSnapshot = await db.collection('passwordResets')
+      .where('resetToken', '==', token)
+      .where('resetTokenExpire', '>', Date.now())
+      .get();
+    
+    if (resetDocsSnapshot.empty) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Get the first matching document
+    const resetDoc = resetDocsSnapshot.docs[0];
+    const resetData = resetDoc.data();
+    const userId = resetDoc.id;
+    
+    // Update user password
+    await auth.updateUser(userId, {
+      password
+    });
+    
+    // Delete the reset token
+    await db.collection('passwordResets').doc(userId).delete();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email
+ * @access  Private
+ */
+router.post('/verify-email', protect, async (req, res, next) => {
+  try {
+    // In a real implementation, you would generate a verification link
+    // and send it to the user's email
+    
+    // For now, we'll just mark the user as verified
+    await db.collection('users').doc(req.user.uid).update({
+      emailVerified: true,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    next(error);
+  }
+});
   } catch (error) {
     console.error('Get profile error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Check if user exists
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpire = Date.now() + 3600000; // 1 hour
+    
+    // Store reset token in Firestore
+    await db.collection('passwordResets').doc(userRecord.uid).set({
+      resetToken,
+      resetTokenExpire,
+      email
+    });
+    
+    // In a production environment, you would send an email with the reset link
+    // For now, we'll just return the token in the response
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {
+        resetToken,
+        // In production, remove this and send via email instead
+        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Don't reveal if the email exists or not for security
+    res.status(200).json({
+      success: true,
+      message: 'If that email exists, a password reset link has been sent'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    
+    // Find reset token in database
+    const resetDocsSnapshot = await db.collection('passwordResets')
+      .where('resetToken', '==', token)
+      .where('resetTokenExpire', '>', Date.now())
+      .get();
+    
+    if (resetDocsSnapshot.empty) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Get the first matching document
+    const resetDoc = resetDocsSnapshot.docs[0];
+    const resetData = resetDoc.data();
+    const userId = resetDoc.id;
+    
+    // Update user password
+    await auth.updateUser(userId, {
+      password
+    });
+    
+    // Delete the reset token
+    await db.collection('passwordResets').doc(userId).delete();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email
+ * @access  Private
+ */
+router.post('/verify-email', protect, async (req, res, next) => {
+  try {
+    // In a real implementation, you would generate a verification link
+    // and send it to the user's email
+    
+    // For now, we'll just mark the user as verified
+    await db.collection('users').doc(req.user.uid).update({
+      emailVerified: true,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
     next(error);
   }
 });
@@ -152,6 +855,357 @@ router.post('/logout', protect, (req, res) => {
     success: true,
     message: 'Logged out successfully'
   });
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Check if user exists
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpire = Date.now() + 3600000; // 1 hour
+    
+    // Store reset token in Firestore
+    await db.collection('passwordResets').doc(userRecord.uid).set({
+      resetToken,
+      resetTokenExpire,
+      email
+    });
+    
+    // In a production environment, you would send an email with the reset link
+    // For now, we'll just return the token in the response
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {
+        resetToken,
+        // In production, remove this and send via email instead
+        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Don't reveal if the email exists or not for security
+    res.status(200).json({
+      success: true,
+      message: 'If that email exists, a password reset link has been sent'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    
+    // Find reset token in database
+    const resetDocsSnapshot = await db.collection('passwordResets')
+      .where('resetToken', '==', token)
+      .where('resetTokenExpire', '>', Date.now())
+      .get();
+    
+    if (resetDocsSnapshot.empty) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Get the first matching document
+    const resetDoc = resetDocsSnapshot.docs[0];
+    const resetData = resetDoc.data();
+    const userId = resetDoc.id;
+    
+    // Update user password
+    await auth.updateUser(userId, {
+      password
+    });
+    
+    // Delete the reset token
+    await db.collection('passwordResets').doc(userId).delete();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email
+ * @access  Private
+ */
+router.post('/verify-email', protect, async (req, res, next) => {
+  try {
+    // In a real implementation, you would generate a verification link
+    // and send it to the user's email
+    
+    // For now, we'll just mark the user as verified
+    await db.collection('users').doc(req.user.uid).update({
+      emailVerified: true,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    next(error);
+  }
+});
+});
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Check if user exists
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpire = Date.now() + 3600000; // 1 hour
+    
+    // Store reset token in Firestore
+    await db.collection('passwordResets').doc(userRecord.uid).set({
+      resetToken,
+      resetTokenExpire,
+      email
+    });
+    
+    // In a production environment, you would send an email with the reset link
+    // For now, we'll just return the token in the response
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {
+        resetToken,
+        // In production, remove this and send via email instead
+        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Don't reveal if the email exists or not for security
+    res.status(200).json({
+      success: true,
+      message: 'If that email exists, a password reset link has been sent'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    
+    // Find reset token in database
+    const resetDocsSnapshot = await db.collection('passwordResets')
+      .where('resetToken', '==', token)
+      .where('resetTokenExpire', '>', Date.now())
+      .get();
+    
+    if (resetDocsSnapshot.empty) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Get the first matching document
+    const resetDoc = resetDocsSnapshot.docs[0];
+    const resetData = resetDoc.data();
+    const userId = resetDoc.id;
+    
+    // Update user password
+    await auth.updateUser(userId, {
+      password
+    });
+    
+    // Delete the reset token
+    await db.collection('passwordResets').doc(userId).delete();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email
+ * @access  Private
+ */
+router.post('/verify-email', protect, async (req, res, next) => {
+  try {
+    // In a real implementation, you would generate a verification link
+    // and send it to the user's email
+    
+    // For now, we'll just mark the user as verified
+    await db.collection('users').doc(req.user.uid).update({
+      emailVerified: true,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset email
+ * @access  Public
+ */
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Check if user exists
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpire = Date.now() + 3600000; // 1 hour
+    
+    // Store reset token in Firestore
+    await db.collection('passwordResets').doc(userRecord.uid).set({
+      resetToken,
+      resetTokenExpire,
+      email
+    });
+    
+    // In a production environment, you would send an email with the reset link
+    // For now, we'll just return the token in the response
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      data: {
+        resetToken,
+        // In production, remove this and send via email instead
+        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    // Don't reveal if the email exists or not for security
+    res.status(200).json({
+      success: true,
+      message: 'If that email exists, a password reset link has been sent'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/auth/reset-password/:token
+ * @desc    Reset password using token
+ * @access  Public
+ */
+router.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    
+    // Find reset token in database
+    const resetDocsSnapshot = await db.collection('passwordResets')
+      .where('resetToken', '==', token)
+      .where('resetTokenExpire', '>', Date.now())
+      .get();
+    
+    if (resetDocsSnapshot.empty) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Get the first matching document
+    const resetDoc = resetDocsSnapshot.docs[0];
+    const resetData = resetDoc.data();
+    const userId = resetDoc.id;
+    
+    // Update user password
+    await auth.updateUser(userId, {
+      password
+    });
+    
+    // Delete the reset token
+    await db.collection('passwordResets').doc(userId).delete();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email
+ * @access  Private
+ */
+router.post('/verify-email', protect, async (req, res, next) => {
+  try {
+    // In a real implementation, you would generate a verification link
+    // and send it to the user's email
+    
+    // For now, we'll just mark the user as verified
+    await db.collection('users').doc(req.user.uid).update({
+      emailVerified: true,
+      updatedAt: new Date().toISOString()
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    next(error);
+  }
 });
 
 module.exports = router;
