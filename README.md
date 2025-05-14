@@ -1,0 +1,142 @@
+# Shopify Server Backend
+
+A Node.js backend server for Shopify with Express.js and Firebase integration. This server provides authentication, product management, order processing, user management, analytics, and inventory control functionalities.
+
+## Features
+
+- **Authentication & Authorization**
+  - Firebase Authentication integration
+  - JWT middleware for protected routes
+  - Role-based access control (Admin, Manager, Staff)
+  - Session management
+
+- **API Endpoints**
+  - Products management (`/api/products`)
+  - Orders handling (`/api/orders`)
+  - User management (`/api/users`)
+  - Analytics data (`/api/analytics`)
+  - Inventory control (`/api/inventory`)
+
+- **Firebase Integration**
+  - Firestore for data storage
+  - Firebase Storage for image uploads
+  - Real-time updates for order status
+
+- **Security Features**
+  - Request validation
+  - Rate limiting
+  - CORS configuration
+  - Error handling middleware
+  - Input sanitization
+
+## Prerequisites
+
+- Node.js (v14 or higher)
+- Firebase account with a project set up
+- Firebase Admin SDK credentials
+
+## Installation
+
+1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd Shopify-Server
+```
+
+2. Install dependencies
+
+```bash
+npm install
+```
+
+3. Configure environment variables
+
+Create a `.env` file in the root directory and add your Firebase configuration and other environment variables:
+
+```env
+# Environment Variables
+PORT=5000
+NODE_ENV=development
+
+# Firebase Configuration
+FIREBASE_TYPE=service_account
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_PRIVATE_KEY_ID=your-private-key-id
+FIREBASE_PRIVATE_KEY=your-private-key
+FIREBASE_CLIENT_EMAIL=your-client-email
+FIREBASE_CLIENT_ID=your-client-id
+FIREBASE_AUTH_URI=https://accounts.google.com/o/oauth2/auth
+FIREBASE_TOKEN_URI=https://oauth2.googleapis.com/token
+FIREBASE_AUTH_PROVIDER_X509_CERT_URL=https://www.googleapis.com/oauth2/v1/certs
+FIREBASE_CLIENT_X509_CERT_URL=your-cert-url
+
+# JWT Secret
+JWT_SECRET=your-jwt-secret-key
+JWT_EXPIRES_IN=1d
+```
+
+## Usage
+
+1. Start the development server
+
+```bash
+npm run dev
+```
+
+2. Start the production server
+
+```bash
+npm start
+```
+
+## API Documentation
+
+### Authentication
+
+- `POST /api/auth/register` - Register a new user
+- `POST /api/auth/login` - Login user and return JWT token
+- `GET /api/auth/me` - Get current user profile
+- `POST /api/auth/logout` - Logout user
+
+### Products
+
+- `GET /api/products` - Get all products
+- `GET /api/products/:id` - Get single product
+- `POST /api/products` - Create a new product (Admin, Manager)
+- `PUT /api/products/:id` - Update a product (Admin, Manager)
+- `DELETE /api/products/:id` - Delete a product (Admin)
+
+### Orders
+
+- `GET /api/orders` - Get all orders (Admin, Manager)
+- `GET /api/orders/my-orders` - Get orders for the current user
+- `GET /api/orders/:id` - Get single order
+- `POST /api/orders` - Create a new order
+- `PUT /api/orders/:id/status` - Update order status (Admin, Manager)
+- `DELETE /api/orders/:id` - Delete an order (Admin)
+
+### Users
+
+- `GET /api/users` - Get all users (Admin)
+- `GET /api/users/:id` - Get single user (Admin, or own profile)
+- `PUT /api/users/:id` - Update user profile (Admin, or own profile)
+- `DELETE /api/users/:id` - Delete a user (Admin)
+
+### Analytics
+
+- `GET /api/analytics/sales` - Get sales analytics (Admin, Manager)
+- `GET /api/analytics/inventory` - Get inventory analytics (Admin, Manager)
+- `GET /api/analytics/users` - Get user analytics (Admin)
+
+### Inventory
+
+- `GET /api/inventory` - Get inventory status for all products
+- `GET /api/inventory/low-stock` - Get products with low stock
+- `PUT /api/inventory/:id` - Update product inventory (Admin, Manager)
+- `POST /api/inventory/bulk-update` - Bulk update product inventory (Admin, Manager)
+- `GET /api/inventory/history/:id` - Get inventory history for a product (Admin, Manager)
+
+## License
+
+ISC
