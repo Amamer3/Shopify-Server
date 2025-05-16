@@ -35,3 +35,5 @@ coverage
 # OS files
 .DS_Store
 Thumbs.db
+# superadmin login
+create-superadmin.js
