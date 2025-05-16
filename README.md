@@ -78,13 +78,19 @@ JWT_EXPIRES_IN=1d
 
 ## Usage
 
-1. Start the development server
+1. Create the first superadmin (initial setup)
+
+```bash
+node scripts/create-superadmin.js
+```
+
+2. Start the development server
 
 ```bash
 npm run dev
 ```
 
-2. Start the production server
+3. Start the production server
 
 ```bash
 npm start
@@ -94,10 +100,12 @@ npm start
 
 ### Authentication
 
-- `POST /api/auth/register` - Register a new user
+- `POST /api/auth/register` - Register a new user (requires firstName, lastName, email, password)
 - `POST /api/auth/login` - Login user and return JWT token
+- `POST /api/auth/register-admin` - Register a new admin (superadmin access only)
+- `POST /api/auth/register-superadmin` - Register a new superadmin (superadmin access only)
 - `POST /api/auth/forgot-password` - Send password reset email
-- `POST /api/auth/reset-password` - Reset user password with token
+- `POST /api/auth/reset-password/:token` - Reset user password with token
 - `POST /api/auth/verify-email` - Verify user email address
 
 ### Products
