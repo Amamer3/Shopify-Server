@@ -2,6 +2,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const fetch = require('node-fetch');
 const router = express.Router();
 
 // Import Firebase config
@@ -17,10 +18,16 @@ const { protect, authorize } = require('../middleware/auth');
  * @access  Public
  */
 router.post('/register', [
-  body('email').isEmail().withMessage('Please provide a valid email'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
   body('firstName').notEmpty().withMessage('First name is required'),
-  body('lastName').notEmpty().withMessage('Last name is required')
+  body('lastName').notEmpty().withMessage('Last name is required'),
+  body('email').isEmail().withMessage('Please provide a valid email'),
+  body('password')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number')
+    .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage('Password must contain at least one special character')
+    .not().matches(/^(.{0,7}|[^0-9]*|[^A-Z]*|[^a-z]*|[a-zA-Z0-9]*)$/).withMessage('Password must meet all requirements')
 ], validateRequest, async (req, res, next) => {
   try {
     const { email, password, firstName, lastName } = req.body;
@@ -81,21 +88,59 @@ router.post('/login', [
   try {
     const { email, password } = req.body;
 
-    // Sign in with Firebase Authentication
-    const signInResult = await auth.getUserByEmail(email);
+    // Verify user exists first
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Use Firebase Admin SDK to create a custom token
+    // This will be used to authenticate with Firebase Auth REST API
+    const customToken = await auth.createCustomToken(userRecord.uid);
+    
+    // Use Firebase Auth REST API to sign in with custom token
+    const firebaseApiKey = process.env.FIREBASE_API_KEY;
+    if (!firebaseApiKey) {
+      throw new Error('Firebase API key is not configured');
+    }
+    
+    // Exchange custom token for ID and refresh tokens
+    const tokenExchangeUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${firebaseApiKey}`;
+    const tokenResponse = await fetch(tokenExchangeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: customToken, returnSecureToken: true })
+    });
+    
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json();
+      console.error('Firebase token exchange error:', errorData);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    
+    // Now verify the password with Firebase Auth REST API
+    const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`;
+    const signInResponse = await fetch(signInUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, returnSecureToken: true })
+    });
+    
+    if (!signInResponse.ok) {
+      const errorData = await signInResponse.json();
+      console.error('Firebase sign-in error:', errorData);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
     
     // Get user data from Firestore
-    const userDoc = await db.collection('users').doc(signInResult.uid).get();
+    const userDoc = await db.collection('users').doc(userRecord.uid).get();
     
     if (!userDoc.exists) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User not found in database' });
     }
     
     const userData = userDoc.data();
-
+    
     // Generate JWT token
     const token = jwt.sign(
-      { uid: signInResult.uid, email, role: userData.role },
+      { uid: userRecord.uid, email, role: userData.role },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
@@ -104,7 +149,7 @@ router.post('/login', [
       success: true,
       data: {
         user: {
-          uid: signInResult.uid,
+          uid: userRecord.uid,
           firstName: userData.firstName,
           lastName: userData.lastName,
           email: userData.email,

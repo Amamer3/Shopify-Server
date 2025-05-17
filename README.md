@@ -213,6 +213,14 @@ npm start
 - `POST /api/inventory/bulk-update` - Bulk update product inventory (Admin, Manager)
 - `GET /api/inventory/history/:id` - Get inventory history for a product (Admin, Manager)
 
+### Payments
+- POST /api/payments/initialize - Initializes a payment transaction with Paystack
+- GET /api/payments/verify/:reference - Verifies a payment transaction status
+- POST /api/payments/webhook - Handles Paystack webhooks for real-time payment updates
+- GET /api/payments/transactions - Retrieves a user's payment transaction history
+- GET /api/payments/transactions/:id - Retrieves details of a specific payment transaction
+- GET /api/payments/transactions/:id/verify - Verifies the status of a specific payment transaction
+
 ## License
 
 ISC
