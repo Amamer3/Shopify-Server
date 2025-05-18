@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Import routes
-import productRoutes from './routes/products';
+import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders';
 import userRoutes from './routes/users';
 import analyticsRoutes from './routes/analytics';
