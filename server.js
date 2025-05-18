@@ -25,6 +25,16 @@ import { errorHandler } from './middleware/errorHandler.js';
 // Initialize express app
 const app = express();
 
+// Configure CORS for frontend environments
+app.use(cors({
+  origin: [
+    'http://localhost:8080',
+    'https://shopify-dashboard-woad.vercel.app'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
+
 // Set security headers with Helmet
 app.use(helmet());
 
