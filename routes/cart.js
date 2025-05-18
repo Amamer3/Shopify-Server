@@ -1,13 +1,13 @@
-const express = require('express');
-const { body } = require('express-validator');
+import express from 'express';
+import { body } from 'express-validator';
 const router = express.Router();
 
 // Import Firebase config
-const { db } = require('../config/firebase');
+import { db } from '../config/firebase.js';
 
 // Import middleware
-const { validateRequest } = require('../middleware/errorHandler');
-const { protect } = require('../middleware/auth');
+import { validateRequest } from '../middleware/errorHandler.js';
+import { protect } from '../middleware/auth.js';
 
 /**
  * @route   GET /api/cart
@@ -331,4 +331,4 @@ router.delete('/', protect, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

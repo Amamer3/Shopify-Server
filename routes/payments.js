@@ -1,12 +1,13 @@
-const express = require('express');
-const { body } = require('express-validator');
-const { validateRequest } = require('../middleware/errorHandler');
-const { protect } = require('../middleware/auth');
-const crypto = require('crypto');
+import express from 'express';
+import { body } from 'express-validator';
+import { validateRequest } from '../middleware/errorHandler.js';
+import { protect } from '../middleware/auth.js';
+import crypto from 'crypto';
 const router = express.Router();
 
 // Initialize Paystack
-const paystack = require('paystack')(process.env.PAYSTACK_SECRET_KEY);
+import paystack from 'paystack';
+const paystackClient = paystack(process.env.PAYSTACK_SECRET_KEY);
 
 /**
  * @route   POST /api/payments/initialize
@@ -36,7 +37,7 @@ router.post('/initialize', [
       }
     };
     
-    const response = await paystack.transaction.initialize(initializeOptions);
+    const response = await paystackClient.transaction.initialize(initializeOptions);
     
     res.status(200).json({
       success: true,
@@ -57,7 +58,7 @@ router.get('/verify/:reference', protect, async (req, res, next) => {
   try {
     const { reference } = req.params;
     
-    const response = await paystack.transaction.verify(reference);
+    const response = await paystackClient.transaction.verify(reference);
     
     if (response.data.status === 'success') {
       // Here you would update your database to mark the order as paid
@@ -136,7 +137,7 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
 router.get('/transactions', protect, async (req, res, next) => {
   try {
     // You can filter by customer email if needed
-    const response = await paystack.transaction.list({ perPage: 20 });
+    const response = await paystackClient.transaction.list({ perPage: 20 });
     
     // Filter transactions for the current user
     // This is a simple example - in production you might want to query your database instead
@@ -154,4 +155,4 @@ router.get('/transactions', protect, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

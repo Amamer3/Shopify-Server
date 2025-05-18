@@ -1,17 +1,16 @@
-const express = require('express');
-const { body } = require('express-validator');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-// Import node-fetch v3 as ESM
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+import express from 'express';
+import { body } from 'express-validator';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import fetch from 'node-fetch';
 const router = express.Router();
 
 // Import Firebase config
-const { auth, db } = require('../config/firebase');
+import { auth, db } from '../config/firebase.js';
 
 // Import middleware
-const { validateRequest } = require('../middleware/errorHandler');
-const { protect, authorize } = require('../middleware/auth');
+import { validateRequest } from '../middleware/errorHandler.js';
+import { protect, authorize } from '../middleware/auth.js';
 
 /**
  * @route   POST /api/auth/register
@@ -57,6 +56,26 @@ router.post('/register', [
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
+
+    // Send password reset email using secure email service
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const emailResponse = await fetch(process.env.EMAIL_SERVICE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.EMAIL_SERVICE_KEY}`
+      },
+      body: JSON.stringify({
+        to: email,
+        subject: 'Password Reset',
+        text: `Click the link to reset your password: ${resetLink}`,
+        html: `<p>Click <a href="${resetLink}">here</a> to reset your password.</p>`
+      })
+    });
+
+    if (!emailResponse.ok) {
+      throw new Error('Failed to send password reset email');
+    }
 
     res.status(201).json({
       success: true,
@@ -373,4 +392,4 @@ router.post('/reset-password/:token', [
 });
 
 // Export router
-module.exports = router;
+export default router;

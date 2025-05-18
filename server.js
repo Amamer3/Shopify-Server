@@ -1,26 +1,26 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const dotenv = require('dotenv');
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
 
 // Import routes
-const productRoutes = require('./routes/products');
-const orderRoutes = require('./routes/orders');
-const userRoutes = require('./routes/users');
-const analyticsRoutes = require('./routes/analytics');
-const inventoryRoutes = require('./routes/inventory');
-const authRoutes = require('./routes/auth');
-const cartRoutes = require('./routes/cart');
-const categoryRoutes = require('./routes/categories');
-const profileRoutes = require('./routes/profile');
-const paymentsRoutes = require('./routes/payments');
+import productRoutes from './routes/products';
+import orderRoutes from './routes/orders';
+import userRoutes from './routes/users';
+import analyticsRoutes from './routes/analytics';
+import inventoryRoutes from './routes/inventory';
+import authRoutes from './routes/auth';
+import cartRoutes from './routes/cart';
+import categoryRoutes from './routes/categories';
+import profileRoutes from './routes/profile';
+import paymentsRoutes from './routes/payments';
 
 // Import middleware
-const { errorHandler } = require('./middleware/errorHandler');
+import { errorHandler } from './middleware/errorHandler';
 
 // Initialize express app
 const app = express();
@@ -73,9 +73,9 @@ app.get('/', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-module.exports = app;
+export default app;

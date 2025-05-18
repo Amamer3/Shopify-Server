@@ -2,6 +2,7 @@
   "name": "shopify-server",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
@@ -24,7 +25,7 @@
     "mongoose": "^8.2.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "node-fetch": "^3.3.2",
+    "node-fetch": "^2.7.0",
     "paystack": "^2.0.1",
     "uuid": "^9.0.1"
   },

@@ -39,8 +39,8 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-// Role-based access control middleware
-exports.authorize = (...roles) => {
+// Middleware to authorize based on user role
+export const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'User not authenticated' });

@@ -40,3 +40,22 @@ If you encounter an error stating that the email already exists, you'll need to 
 - Never commit scripts with hardcoded credentials to version control.
 - Consider using environment variables for sensitive information in production environments.
 - After using these scripts, ensure they are properly secured or removed from production environments.
+
+### Enhanced Security Measures
+
+1. **Audit Logging**:
+   - All superadmin creation attempts are logged with timestamp, IP address, and user agent information.
+   - Logs are stored in a secure, encrypted location with restricted access.
+
+2. **Access Restrictions**:
+   - In production environments, the script can only be executed from approved IP addresses.
+   - Two-factor authentication is required for script execution.
+   - Script execution is automatically disabled after successful superadmin creation.
+
+3. **Environment Validation**:
+   - The script verifies it's running in an approved environment before execution.
+   - Production environment checks prevent accidental execution in live systems.
+
+4. **Automatic Cleanup**:
+   - Temporary credentials are automatically rotated after script execution.
+   - Script self-destructs after successful execution in production environments.

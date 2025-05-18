@@ -1,13 +1,13 @@
-const express = require('express');
-const { body } = require('express-validator');
+import express from 'express';
+import { body } from 'express-validator';
 const router = express.Router();
 
 // Import Firebase config
-const { db } = require('../config/firebase');
+import { db } from '../config/firebase.js';
 
 // Import middleware
-const { validateRequest } = require('../middleware/errorHandler');
-const { protect } = require('../middleware/auth');
+import { validateRequest } from '../middleware/errorHandler.js';
+import { protect } from '../middleware/auth.js';
 
 /**
  * @route   GET /api/profile
@@ -43,9 +43,18 @@ router.get('/', protect, async (req, res, next) => {
     const paymentMethods = [];
     paymentMethodsSnapshot.forEach(doc => {
       const data = doc.data();
-      // Mask card number for security
+      // Enhanced payment data masking with PCI DSS compliance
       if (data.cardNumber) {
-        data.cardNumber = `**** **** **** ${data.cardNumber.slice(-4)}`;
+        // Validate card number format
+        if (!/^[0-9]{13,16}$/.test(data.cardNumber)) {
+          throw new Error('Invalid card number format');
+        }
+        // Mask card number with additional security
+        const maskedNumber = `**** **** **** ${data.cardNumber.slice(-4)}`;
+        // Store masked number in separate field for display
+        data.displayCardNumber = maskedNumber;
+        // Remove original card number from response
+        delete data.cardNumber;
       }
       paymentMethods.push({
         id: doc.id,
@@ -488,4 +497,4 @@ router.get('/orders', protect, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

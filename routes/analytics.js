@@ -1,11 +1,11 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // Import Firebase config
-const { db } = require('../config/firebase');
+import { db } from '../config/firebase.js';
 
 // Import middleware
-const { protect, authorize } = require('../middleware/auth');
+import { protect, authorize } from '../middleware/auth.js';
 
 /**
  * @route   GET /api/analytics/sales
@@ -187,4 +187,4 @@ router.get('/users', protect, authorize('admin'), async (req, res, next) => {
   }
 });
 
-module.exports = router;
+export default router;

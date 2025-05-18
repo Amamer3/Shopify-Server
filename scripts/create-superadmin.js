@@ -1,13 +1,5 @@
-/**
- * Script to create the first superadmin user directly in Firebase
- * 
- * Usage: 
- * 1. Set the email and password in this file
- * 2. Run with: node scripts/create-superadmin.js
- */
-
-require('dotenv').config();
-const { auth, db } = require('../config/firebase');
+import 'dotenv/config';
+import { auth, db } from '../config/firebase.js';
 
 // Get superadmin credentials from environment variables or use defaults
 const superadminEmail = process.env.SUPERADMIN_EMAIL || 'superadmin@shopify.com';
