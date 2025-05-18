@@ -1,8 +1,8 @@
-const jwt = require('jsonwebtoken');
-const { admin } = require('../config/firebase');
+import { auth } from '../config/firebase.js';
+import jwt from 'jsonwebtoken';
 
 // Middleware to verify JWT token
-exports.protect = async (req, res, next) => {
+export const protect = async (req, res, next) => {
   let token;
 
   // Check if token exists in headers

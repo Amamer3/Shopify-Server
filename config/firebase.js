@@ -34,9 +34,7 @@ try {
 }
 
 // Export Firebase services
-export default {
-  admin,
-  db: admin.firestore(),
-  auth: admin.auth(),
-  storage: admin.storage()
-};
+export const db = admin.firestore();
+export const auth = admin.auth();
+export const storage = admin.storage();
+export const firebaseAdmin = admin;
