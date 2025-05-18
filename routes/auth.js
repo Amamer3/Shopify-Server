@@ -2,7 +2,8 @@ const express = require('express');
 const { body } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const fetch = require('node-fetch');
+// Import node-fetch v3 as ESM
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const router = express.Router();
 
 // Import Firebase config
