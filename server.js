@@ -20,7 +20,7 @@ import profileRoutes from './routes/profile.js';
 import paymentsRoutes from './routes/payments.js';
 
 // Import middleware
-import { errorHandler } from './middleware/errorHandler';
+import { errorHandler } from './middleware/errorHandler.js';
 
 // Initialize express app
 const app = express();
