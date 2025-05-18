@@ -9,15 +9,15 @@ dotenv.config();
 
 // Import routes
 import productRoutes from './routes/products.js';
-import orderRoutes from './routes/orders';
-import userRoutes from './routes/users';
-import analyticsRoutes from './routes/analytics';
-import inventoryRoutes from './routes/inventory';
-import authRoutes from './routes/auth';
-import cartRoutes from './routes/cart';
-import categoryRoutes from './routes/categories';
-import profileRoutes from './routes/profile';
-import paymentsRoutes from './routes/payments';
+import orderRoutes from './routes/orders.js';
+import userRoutes from './routes/users.js';
+import analyticsRoutes from './routes/analytics.js';
+import inventoryRoutes from './routes/inventory.js';
+import authRoutes from './routes/auth.js';
+import cartRoutes from './routes/cart.js';
+import categoryRoutes from './routes/categories.js';
+import profileRoutes from './routes/profile.js';
+import paymentsRoutes from './routes/payments.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
