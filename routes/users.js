@@ -14,7 +14,11 @@ import { protect, authorize } from '../middleware/auth.js';
  * @desc    Get all users
  * @access  Private (Admin)
  */
+// Get all users with timeout handling
 router.get('/', protect, authorize('admin'), async (req, res, next) => {
+  req.setTimeout(10000, () => {
+    next(new AppError('User query timeout', 408));
+  })
   try {
     const usersSnapshot = await db.collection('users').get();
     const users = [];
