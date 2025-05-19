@@ -3,10 +3,11 @@ import { body } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
+import { AppError } from '../middleware/errorHandler.js';
 const router = express.Router();
 
 // Import Firebase config
-import { auth, db } from '../config/firebase.js';
+import { auth, db, firebaseAdmin } from '../config/firebase.js';
 
 // Import middleware
 import { validateRequest } from '../middleware/errorHandler.js';
@@ -97,6 +98,96 @@ router.post('/register', [
 });
 
 /**
+ * @route   GET /api/auth/validate
+ * @desc    Validate a token and return user info
+ * @access  Protected
+ */
+router.get('/validate', protect, async (req, res, next) => {
+  try {
+    // Token is already validated by the protect middleware
+    // Get user from Firebase
+    const user = await auth.getUser(req.user.uid);
+    
+    // Return user info
+    res.status(200).json({
+      valid: true,
+      user: {
+        uid: user.uid,
+        email: user.email,
+        role: req.user.role || 'user'
+      }
+    });
+  } catch (error) {
+    console.error('Token validation error:', error);
+    next(new AppError('Invalid token', 401));
+  }
+});
+
+/**
+ * @route   POST /api/auth/refresh
+ * @desc    Refresh access token using refresh token
+ * @access  Public
+ */
+router.post('/refresh', async (req, res, next) => {
+  try {
+    // Get refresh token from cookie or request body
+    const refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
+    
+    if (!refreshToken) {
+      return next(new AppError('Refresh token is required', 400));
+    }
+    
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    
+    // Get user from Firebase
+    const user = await auth.getUser(decoded.uid);
+    
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+    
+    // Get user role from Firestore
+    const userDoc = await db.collection('users').doc(user.uid).get();
+    const userData = userDoc.data();
+    const role = userData?.role || 'user';
+    
+    // Generate new access token
+    const accessToken = jwt.sign(
+      { uid: user.uid, email: user.email, role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
+    
+    // Generate new refresh token with rotation for security
+    const newRefreshToken = jwt.sign(
+      { uid: user.uid },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN }
+    );
+    
+    // Set refresh token as HTTP-only cookie
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+    
+    res.status(200).json({
+      success: true,
+      accessToken
+    });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return next(new AppError('Invalid or expired refresh token', 401));
+    }
+    next(error);
+  }
+});
+
+/**
  * @route   POST /api/auth/login
  * @desc    Login user and return JWT token
  * @access  Public
@@ -158,12 +249,27 @@ router.post('/login', [
     
     const userData = userDoc.data();
     
-    // Generate JWT token
-    const token = jwt.sign(
+    // Generate access token
+    const accessToken = jwt.sign(
       { uid: userRecord.uid, email, role: userData.role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
     );
+    
+    // Generate refresh token
+    const refreshToken = jwt.sign(
+      { uid: userRecord.uid },
+      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
+    
+    // Set refresh token as HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
 
     res.status(200).json({
       success: true,
@@ -172,10 +278,10 @@ router.post('/login', [
           uid: userRecord.uid,
           firstName: userData.firstName,
           lastName: userData.lastName,
-          email: userData.email,
+          email,
           role: userData.role
         },
-        token
+        accessToken
       }
     });
   } catch (error) {

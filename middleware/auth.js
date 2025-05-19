@@ -1,17 +1,20 @@
-import { auth } from '../config/firebase.js';
+import { auth, firebaseAdmin } from '../config/firebase.js';
 import jwt from 'jsonwebtoken';
+import { AppError } from './errorHandler.js';
 
 // Middleware to verify JWT token
 export const protect = async (req, res, next) => {
   let token;
 
-  // Check if token exists in headers
+  // Check if token exists in headers or cookies
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
+  } else if (req.cookies?.accessToken) {
+    token = req.cookies.accessToken;
   }
 
   if (!token) {
-    return res.status(401).json({ message: 'Not authorized, no token provided' });
+    return next(new AppError('Not authorized, no token provided', 401));
   }
 
   try {
@@ -19,23 +22,38 @@ export const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Get user from Firebase
-    const user = await admin.auth().getUser(decoded.uid);
+    const user = await auth.getUser(decoded.uid);
     
     if (!user) {
-      return res.status(401).json({ message: 'User not found' });
+      return next(new AppError('User not found', 401));
     }
 
     // Add user data to request object
     req.user = {
       uid: user.uid,
       email: user.email,
-      role: decoded.role || 'staff' // Default to staff if role not specified
+      role: decoded.role || 'user' // Default to user if role not specified
     };
 
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    return res.status(401).json({ message: 'Not authorized, token invalid' });
+    
+    // Handle token expiration specifically
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        message: 'Token expired', 
+        code: 'TOKEN_EXPIRED',
+        needsRefresh: true
+      });
+    }
+    
+    // Handle other JWT errors
+    if (error.name === 'JsonWebTokenError') {
+      return next(new AppError('Invalid token format', 401));
+    }
+    
+    return next(new AppError('Not authorized, token invalid', 401));
   }
 };
 

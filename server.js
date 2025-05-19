@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -37,6 +38,9 @@ app.use(cors({
 
 // Set security headers with Helmet
 app.use(helmet());
+
+// Parse cookies
+app.use(cookieParser());
 
 // Enable CORS with specific options
 app.use(cors({
