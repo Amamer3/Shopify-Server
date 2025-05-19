@@ -27,7 +27,7 @@ export const protect = async (req, res, next) => {
     const timeRemaining = Math.floor((expiryTime - now) / 1000); // seconds remaining
 
     // Get user from Firebase
-    const user = await auth.getUser(decoded.uid);
+    const user = await firebaseAdmin.auth().getUser(decoded.uid);
     
     if (!user) {
       return next(new AppError('User not found', 401));
