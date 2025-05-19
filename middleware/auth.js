@@ -21,6 +21,11 @@ export const protect = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Calculate token expiry time
+    const expiryTime = new Date(decoded.exp * 1000);
+    const now = new Date();
+    const timeRemaining = Math.floor((expiryTime - now) / 1000); // seconds remaining
+
     // Get user from Firebase
     const user = await auth.getUser(decoded.uid);
     
@@ -28,12 +33,24 @@ export const protect = async (req, res, next) => {
       return next(new AppError('User not found', 401));
     }
 
-    // Add user data to request object
+    // Add user data and token info to request object
     req.user = {
       uid: user.uid,
       email: user.email,
       role: decoded.role || 'user' // Default to user if role not specified
     };
+    
+    // Add token expiry information
+    req.tokenExpiry = {
+      expiresAt: expiryTime.toISOString(),
+      expiresIn: timeRemaining,
+      issuedAt: new Date(decoded.iat * 1000).toISOString()
+    };
+
+    // If token is about to expire (less than 5 minutes), set a flag
+    if (timeRemaining < 300) {
+      req.tokenNearExpiry = true;
+    }
 
     next();
   } catch (error) {

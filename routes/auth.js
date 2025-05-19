@@ -2,7 +2,7 @@ import express from 'express';
 import { body } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import fetch from 'node-fetch';
+import axios from 'axios';
 import { AppError } from '../middleware/errorHandler.js';
 const router = express.Router();
 
@@ -98,6 +98,31 @@ router.post('/register', [
 });
 
 /**
+ * @route   GET /api/auth/status
+ * @desc    Check if user is authenticated without full validation
+ * @access  Public
+ */
+router.get('/status', (req, res) => {
+  // Check if access token exists in headers or cookies
+  let hasToken = false;
+  
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    hasToken = true;
+  } else if (req.cookies?.accessToken) {
+    hasToken = true;
+  }
+  
+  // Check if refresh token exists
+  const hasRefreshToken = !!req.cookies?.refreshToken;
+  
+  res.status(200).json({
+    isAuthenticated: hasToken,
+    hasRefreshToken,
+    authMethod: hasToken ? 'token' : (hasRefreshToken ? 'refresh_token' : 'none')
+  });
+});
+
+/**
  * @route   GET /api/auth/validate
  * @desc    Validate a token and return user info
  * @access  Protected
@@ -108,17 +133,31 @@ router.get('/validate', protect, async (req, res, next) => {
     // Get user from Firebase
     const user = await auth.getUser(req.user.uid);
     
-    // Return user info
+    // Get additional user data from Firestore
+    const userDoc = await db.collection('users').doc(user.uid).get();
+    const userData = userDoc.data() || {};
+    
+    // Return user info with extended profile data
     res.status(200).json({
       valid: true,
       user: {
         uid: user.uid,
         email: user.email,
-        role: req.user.role || 'user'
-      }
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: req.user.role || userData.role || 'user',
+        createdAt: userData.createdAt,
+        lastLogin: user.metadata?.lastSignInTime
+      },
+      tokenExpiry: req.tokenExpiry // This will be set if we add it to the protect middleware
     });
   } catch (error) {
     console.error('Token validation error:', error);
+    
+    if (error.code === 'auth/user-not-found') {
+      return next(new AppError('User not found', 404));
+    }
+    
     next(new AppError('Invalid token', 401));
   }
 });
@@ -132,13 +171,14 @@ router.post('/refresh', async (req, res, next) => {
   try {
     // Get refresh token from cookie or request body
     const refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
+    const { storeTokenInCookie = false } = req.body;
     
     if (!refreshToken) {
       return next(new AppError('Refresh token is required', 400));
     }
     
     // Verify refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
     
     // Get user from Firebase
     const user = await auth.getUser(decoded.uid);
@@ -156,35 +196,94 @@ router.post('/refresh', async (req, res, next) => {
     const accessToken = jwt.sign(
       { uid: user.uid, email: user.email, role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
     );
     
     // Generate new refresh token with rotation for security
     const newRefreshToken = jwt.sign(
       { uid: user.uid },
-      process.env.JWT_REFRESH_SECRET,
-      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN }
+      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
     );
     
     // Set refresh token as HTTP-only cookie
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-site requests in production
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
     
+    // If client requests to store access token in cookie
+    if (storeTokenInCookie) {
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        maxAge: 60 * 60 * 1000, // 1 hour
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      });
+    }
+    
+    // Log token refresh for audit purposes
+    console.log(`Token refreshed for user ${user.uid} at ${new Date().toISOString()}`);
+    
+    // Return the new access token
     res.status(200).json({
       success: true,
-      accessToken
+      accessToken,
+      expiresIn: process.env.JWT_EXPIRES_IN || '1h'
     });
   } catch (error) {
     console.error('Token refresh error:', error);
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      return next(new AppError('Invalid or expired refresh token', 401));
+    
+    // Handle specific JWT errors
+    if (error.name === 'JsonWebTokenError') {
+      return next(new AppError('Invalid refresh token format', 401));
+    } else if (error.name === 'TokenExpiredError') {
+      // Clear the expired refresh token cookie
+      res.cookie('refreshToken', '', {
+        httpOnly: true,
+        expires: new Date(0),
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      });
+      
+      return next(new AppError('Refresh token has expired, please login again', 401));
     }
-    next(error);
+    
+    // Handle other errors
+    next(new AppError('Failed to refresh token', 500));
   }
+});
+
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Logout user by clearing refresh token cookie
+ * @access  Public
+ */
+router.post('/logout', (req, res) => {
+  // Clear the refresh token cookie
+  res.cookie('refreshToken', '', {
+    httpOnly: true,
+    expires: new Date(0), // Set expiration to epoch time (effectively deleting it)
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  });
+  
+  // Clear the access token cookie if it exists
+  if (req.cookies?.accessToken) {
+    res.cookie('accessToken', '', {
+      httpOnly: true,
+      expires: new Date(0),
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    });
+  }
+  
+  res.status(200).json({
+    success: true,
+    message: 'Logged out successfully'
+  });
 });
 
 /**
@@ -197,7 +296,7 @@ router.post('/login', [
   body('password').notEmpty().withMessage('Password is required')
 ], validateRequest, async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, storeTokenInCookie = false } = req.body;
 
     // Verify user exists first
     const userRecord = await auth.getUserByEmail(email);
@@ -214,29 +313,21 @@ router.post('/login', [
     
     // Exchange custom token for ID and refresh tokens
     const tokenExchangeUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${firebaseApiKey}`;
-    const tokenResponse = await fetch(tokenExchangeUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: customToken, returnSecureToken: true })
-    });
-    
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json();
-      console.error('Firebase token exchange error:', errorData);
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    // Now verify the password with Firebase Auth REST API
-    const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`;
-    const signInResponse = await fetch(signInUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, returnSecureToken: true })
-    });
-    
-    if (!signInResponse.ok) {
-      const errorData = await signInResponse.json();
-      console.error('Firebase sign-in error:', errorData);
+    try {
+      const tokenResponse = await axios.post(tokenExchangeUrl, {
+        token: customToken,
+        returnSecureToken: true
+      });
+      
+      // Now verify the password with Firebase Auth REST API
+      const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`;
+      const signInResponse = await axios.post(signInUrl, {
+        email,
+        password,
+        returnSecureToken: true
+      });
+    } catch (error) {
+      console.error('Firebase authentication error:', error.response?.data || error.message);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
     
@@ -248,6 +339,11 @@ router.post('/login', [
     }
     
     const userData = userDoc.data();
+    
+    // Update last login time
+    await db.collection('users').doc(userRecord.uid).update({
+      lastLogin: new Date().toISOString()
+    });
     
     // Generate access token
     const accessToken = jwt.sign(
@@ -267,9 +363,19 @@ router.post('/login', [
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
+    
+    // If client requests to store access token in cookie
+    if (storeTokenInCookie) {
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        maxAge: 60 * 60 * 1000, // 1 hour
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -279,13 +385,24 @@ router.post('/login', [
           firstName: userData.firstName,
           lastName: userData.lastName,
           email,
-          role: userData.role
+          role: userData.role,
+          lastLogin: new Date().toISOString()
         },
-        accessToken
+        accessToken,
+        expiresIn: 3600 // 1 hour in seconds
       }
     });
   } catch (error) {
     console.error('Login error:', error);
+    
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      return next(new AppError('Invalid email or password', 401));
+    }
+    
+    if (error.code === 'auth/too-many-requests') {
+      return next(new AppError('Too many failed login attempts. Please try again later or reset your password.', 429));
+    }
+    
     next(error);
   }
 });
