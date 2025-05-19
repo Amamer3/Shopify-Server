@@ -15,7 +15,7 @@ import { protect, authorize } from '../middleware/auth.js';
  * @access  Private (Admin)
  */
 // Get all users with timeout handling
-router.get('/', protect, authorize('admin'), async (req, res, next) => {
+router.get('/', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   req.setTimeout(10000, () => {
     next(new AppError('User query timeout', 408));
   })
