@@ -301,27 +301,15 @@ router.post('/login', [
     // Verify user exists first
     const userRecord = await auth.getUserByEmail(email);
     
-    // Use Firebase Admin SDK to create a custom token
-    // This will be used to authenticate with Firebase Auth REST API
-    const customToken = await auth.createCustomToken(userRecord.uid);
-    
-    // Use Firebase Auth REST API to sign in with custom token
+    // Sign in with email and password using Firebase Auth REST API
     const firebaseApiKey = process.env.FIREBASE_API_KEY;
     if (!firebaseApiKey) {
       throw new Error('Firebase API key is not configured');
     }
     
-    // Exchange custom token for ID and refresh tokens
-    const tokenExchangeUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${firebaseApiKey}`;
+    const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`;
     try {
-      const tokenResponse = await axios.post(tokenExchangeUrl, {
-        token: customToken,
-        returnSecureToken: true
-      });
-      
-      // Now verify the password with Firebase Auth REST API
-      const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`;
-      const signInResponse = await axios.post(signInUrl, {
+      await axios.post(signInUrl, {
         email,
         password,
         returnSecureToken: true
