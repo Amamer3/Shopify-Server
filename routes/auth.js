@@ -345,19 +345,45 @@ router.post('/login', [
       lastLogin: new Date().toISOString()
     });
     
+    // Verify JWT secret is configured
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not configured');
+      return next(new AppError('Server configuration error', 500));
+    }
+    
     // Generate access token
-    const accessToken = jwt.sign(
-      { uid: userRecord.uid, email, role: userData.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
-    );
+    let accessToken;
+    try {
+      accessToken = jwt.sign(
+        { uid: userRecord.uid, email, role: userData.role },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
+      );
+      
+      if (!accessToken) {
+        throw new Error('Failed to generate access token');
+      }
+    } catch (error) {
+      console.error('Token generation error:', error);
+      return next(new AppError('Authentication failed: Unable to generate token', 500));
+    }
     
     // Generate refresh token
-    const refreshToken = jwt.sign(
-      { uid: userRecord.uid },
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
-    );
+    let refreshToken;
+    try {
+      refreshToken = jwt.sign(
+        { uid: userRecord.uid },
+        process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+      );
+      
+      if (!refreshToken) {
+        throw new Error('Failed to generate refresh token');
+      }
+    } catch (error) {
+      console.error('Refresh token generation error:', error);
+      return next(new AppError('Authentication failed: Unable to generate refresh token', 500));
+    }
     
     // Set refresh token as HTTP-only cookie
     res.cookie('refreshToken', refreshToken, {
