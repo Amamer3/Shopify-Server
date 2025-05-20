@@ -23,12 +23,24 @@ router.get('/', protect, authorize('admin', 'superadmin'), async (req, res, next
     const usersSnapshot = await db.collection('users').get();
     const users = [];
     
+    if (!usersSnapshot) {
+      throw new Error('Failed to fetch users from database');
+    }
+    
     usersSnapshot.forEach(doc => {
-      users.push({
-        id: doc.id,
-        ...doc.data()
-      });
+      const userData = doc.data();
+      if (userData) {
+        users.push({
+          id: doc.id,
+          ...userData
+        });
+      }
     });
+
+    // Validate response structure
+    if (!Array.isArray(users)) {
+      throw new Error('Invalid users data format');
+    }
 
     res.status(200).json({
       success: true,
@@ -37,7 +49,7 @@ router.get('/', protect, authorize('admin', 'superadmin'), async (req, res, next
     });
   } catch (error) {
     console.error('Get users error:', error);
-    next(error);
+    next(new AppError(error.message || 'Failed to fetch users', 500));
   }
 });
 
