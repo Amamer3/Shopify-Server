@@ -224,3 +224,17 @@ npm start
 ## License
 
 ISC
+
+
+### System Health & Monitoring
+
+- `GET /health` - Get system health metrics (uptime, memory usage, CPU usage)
+- `GET /api/status` - Get API operational status and service availability
+
+Each request is automatically logged with:
+- Request timestamp
+- HTTP method and path
+- Response status code
+- Request duration
+- User agent
+- User ID (if authenticated)

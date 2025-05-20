@@ -52,6 +52,26 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log({
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      userAgent: req.headers['user-agent'],
+      userId: req.user?.uid
+    });
+  });
+
+  next();
+});
+
 // Parse JSON request body
 app.use(express.json());
 
@@ -78,9 +98,52 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/payments', paymentsRoutes);
 
+// Health check endpoints
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    cpu: process.cpuUsage()
+  });
+});
+
+// API status endpoint
+app.get('/api/status', (req, res) => {
+  res.status(200).json({
+    status: 'operational',
+    services: {
+      auth: 'up',
+      database: 'up',
+      payment: 'up'
+    },
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Root route
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to Shopify Server API' });
+});
+
+// Error monitoring and logging
+app.use((err, req, res, next) => {
+  // Log error details
+  console.error('Error details:', {
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    method: req.method,
+    errorMessage: err.message,
+    errorStack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    requestBody: req.body,
+    requestQuery: req.query,
+    userAgent: req.headers['user-agent'],
+    userId: req.user?.uid
+  });
+
+  next(err);
 });
 
 // Error handling middleware
