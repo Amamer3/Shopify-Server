@@ -16,16 +16,30 @@ export const validateRequest = (req, res, next) => {
 export const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   
-  // Log error
-  console.error(`[ERROR] ${new Date().toISOString()} - ${err.message}`);
-  console.error(err.stack);
+  // Log error with request details
+  console.error(`[ERROR] ${new Date().toISOString()}`);
+  console.error(`Path: ${req.method} ${req.path}`);
+  console.error(`User: ${req.user?.uid || 'Not authenticated'}`);
+  console.error(`Message: ${err.message}`);
+  console.error(`Stack: ${err.stack}`);
+  
+  if (err.code) {
+    console.error(`Error Code: ${err.code}`);
+  }
 
   // Send response
   res.status(statusCode).json({
     success: false,
     error: {
       message: err.message || 'Server Error',
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+      code: err.code,
+      status: statusCode,
+      path: req.path,
+      timestamp: new Date().toISOString(),
+      ...(process.env.NODE_ENV === 'development' && { 
+        stack: err.stack,
+        details: err.details || err.errors
+      })
     }
   });
 };

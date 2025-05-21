@@ -473,11 +473,24 @@ router.post('/register-admin', protect, authorize('superadmin'), [
  */
 router.post('/register-superadmin', protect, authorize('superadmin'), [
   body('email').isEmail().withMessage('Please provide a valid email'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+  body('permissions').optional().isArray().withMessage('Permissions must be an array')
 ], validateRequest, async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, permissions = [] } = req.body;
     const role = 'superadmin';
+
+    // Check if email already exists
+    try {
+      const existingUser = await auth.getUserByEmail(email);
+      if (existingUser) {
+        return next(new AppError('Email already registered', 400));
+      }
+    } catch (error) {
+      if (error.code !== 'auth/user-not-found') {
+        throw error;
+      }
+    }
 
     // Create superadmin user in Firebase Authentication
     const userRecord = await auth.createUser({
@@ -491,6 +504,7 @@ router.post('/register-superadmin', protect, authorize('superadmin'), [
       uid: userRecord.uid,
       email,
       role,
+      permissions,
       createdAt: new Date().toISOString(),
       createdBy: req.user.uid // Track which superadmin created this superadmin
     });
@@ -501,13 +515,23 @@ router.post('/register-superadmin', protect, authorize('superadmin'), [
         user: {
           uid: userRecord.uid,
           email,
-          role
+          role,
+          permissions
         }
       }
     });
   } catch (error) {
     console.error('Superadmin registration error:', error);
-    next(error);
+    
+    if (error.code === 'auth/email-already-exists') {
+      return next(new AppError('Email already registered', 400));
+    }
+    
+    if (error.code === 'auth/invalid-password') {
+      return next(new AppError('Invalid password format', 400));
+    }
+    
+    next(new AppError('Failed to create superadmin user', 500));
   }
 });
 
