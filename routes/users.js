@@ -97,7 +97,7 @@ router.put('/:id', [
 ], validateRequest, async (req, res, next) => {
   try {
     // Check if user is authorized to update this profile
-    if (req.params.id !== req.user.uid && req.user.role !== 'admin') {
+    if (req.params.id !== req.user.uid && !['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Not authorized to update this profile' });
     }
 
@@ -110,8 +110,8 @@ router.put('/:id', [
 
     const updateData = { ...req.body };
     
-    // Only admin can update roles
-    if (updateData.role && req.user.role !== 'admin') {
+    // Only admin and superadmin can update roles
+    if (updateData.role && !['admin', 'superadmin'].includes(req.user.role)) {
       delete updateData.role;
     }
 
