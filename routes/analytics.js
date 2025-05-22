@@ -10,9 +10,9 @@ import { protect, authorize } from '../middleware/auth.js';
 /**
  * @route   GET /api/analytics/sales
  * @desc    Get sales analytics
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Manager, Superadmin)
  */
-router.get('/sales', protect, authorize('admin', 'manager'), async (req, res, next) => {
+router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
   try {
     const { period = 'month' } = req.query;
     
@@ -106,9 +106,9 @@ router.get('/sales', protect, authorize('admin', 'manager'), async (req, res, ne
 /**
  * @route   GET /api/analytics/inventory
  * @desc    Get inventory analytics
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Manager, Superadmin)
  */
-router.get('/inventory', protect, authorize('admin', 'manager'), async (req, res, next) => {
+router.get('/inventory', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
   try {
     const productsSnapshot = await db.collection('products').get();
     
@@ -153,15 +153,16 @@ router.get('/inventory', protect, authorize('admin', 'manager'), async (req, res
 /**
  * @route   GET /api/analytics/users
  * @desc    Get user analytics
- * @access  Private (Admin)
+ * @access  Private (Admin, Superadmin)
  */
-router.get('/users', protect, authorize('admin'), async (req, res, next) => {
+router.get('/users', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     const usersSnapshot = await db.collection('users').get();
     
     // Calculate user analytics
     const totalUsers = usersSnapshot.size;
     let usersByRole = {
+      superadmin: 0,
       admin: 0,
       manager: 0,
       staff: 0
