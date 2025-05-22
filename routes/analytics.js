@@ -39,15 +39,12 @@ router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
     
-    // Convert to ISO string for Firestore query
     const startDateStr = startDate.toISOString();
     
-    // Get orders within the date range
     const ordersSnapshot = await db.collection('orders')
       .where('createdAt', '>=', startDateStr)
       .get();
     
-    // Calculate analytics
     let totalSales = 0;
     let totalOrders = 0;
     let productsSold = 0;
@@ -55,17 +52,11 @@ router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async
     
     ordersSnapshot.forEach(doc => {
       const orderData = doc.data();
-      
-      // Only count completed orders
       if (orderData.status !== 'cancelled') {
         totalSales += orderData.total;
         totalOrders++;
-        
-        // Count products sold and track sales by product
         orderData.items.forEach(item => {
           productsSold += item.quantity;
-          
-          // Track sales by product
           if (productSales[item.productId]) {
             productSales[item.productId].quantity += item.quantity;
             productSales[item.productId].revenue += item.itemTotal;
@@ -81,7 +72,6 @@ router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async
       }
     });
     
-    // Convert product sales to array and sort by revenue
     const topProducts = Object.values(productSales)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
@@ -104,86 +94,202 @@ router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async
 });
 
 /**
- * @route   GET /api/analytics/inventory
- * @desc    Get inventory analytics
+ * @route   GET /api/analytics/products
+ * @desc    Get product performance analytics
  * @access  Private (Admin, Manager, Superadmin)
  */
-router.get('/inventory', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
+router.get('/products', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
   try {
     const productsSnapshot = await db.collection('products').get();
-    
-    // Calculate inventory analytics
-    let totalProducts = 0;
-    let totalValue = 0;
-    let lowStockProducts = 0;
-    const lowStockItems = [];
-    
+    const ordersSnapshot = await db.collection('orders')
+      .where('status', '!=', 'cancelled')
+      .get();
+
+    const productAnalytics = {};
+
+    // Initialize product analytics
     productsSnapshot.forEach(doc => {
       const productData = doc.data();
-      totalProducts++;
-      totalValue += productData.price * productData.stockQuantity;
-      
-      // Check for low stock (less than 10 items)
-      if (productData.stockQuantity < 10) {
-        lowStockProducts++;
-        lowStockItems.push({
-          id: doc.id,
-          name: productData.name,
-          stockQuantity: productData.stockQuantity,
-          category: productData.category
-        });
-      }
+      productAnalytics[doc.id] = {
+        productId: doc.id,
+        name: productData.name,
+        category: productData.category,
+        price: productData.price,
+        stockQuantity: productData.stockQuantity,
+        totalSales: 0,
+        totalRevenue: 0,
+        totalOrders: 0
+      };
     });
-    
+
+    // Calculate sales metrics
+    ordersSnapshot.forEach(doc => {
+      const orderData = doc.data();
+      orderData.items.forEach(item => {
+        if (productAnalytics[item.productId]) {
+          productAnalytics[item.productId].totalSales += item.quantity;
+          productAnalytics[item.productId].totalRevenue += item.itemTotal;
+          productAnalytics[item.productId].totalOrders++;
+        }
+      });
+    });
+
+    const productsArray = Object.values(productAnalytics)
+      .map(product => ({
+        ...product,
+        averageOrderValue: product.totalOrders > 0 ? product.totalRevenue / product.totalOrders : 0
+      }))
+      .sort((a, b) => b.totalRevenue - a.totalRevenue);
+
     res.status(200).json({
       success: true,
       data: {
-        totalProducts,
-        totalValue,
-        lowStockProducts,
-        lowStockItems
+        products: productsArray,
+        topPerformers: productsArray.slice(0, 5),
+        lowPerformers: productsArray.slice(-5).reverse()
       }
     });
   } catch (error) {
-    console.error('Get inventory analytics error:', error);
+    console.error('Get product analytics error:', error);
     next(error);
   }
 });
 
 /**
- * @route   GET /api/analytics/users
- * @desc    Get user analytics
- * @access  Private (Admin, Superadmin)
+ * @route   GET /api/analytics/customers
+ * @desc    Get customer analytics
+ * @access  Private (Admin, Manager, Superadmin)
  */
-router.get('/users', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
+router.get('/customers', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
   try {
-    const usersSnapshot = await db.collection('users').get();
-    
-    // Calculate user analytics
-    const totalUsers = usersSnapshot.size;
-    let usersByRole = {
-      superadmin: 0,
-      admin: 0,
-      manager: 0,
-      staff: 0
-    };
-    
-    usersSnapshot.forEach(doc => {
-      const userData = doc.data();
-      if (userData.role && usersByRole.hasOwnProperty(userData.role)) {
-        usersByRole[userData.role]++;
+    const ordersSnapshot = await db.collection('orders')
+      .where('status', '!=', 'cancelled')
+      .get();
+
+    const customerAnalytics = {};
+    let totalCustomers = 0;
+
+    ordersSnapshot.forEach(doc => {
+      const orderData = doc.data();
+      const customerId = orderData.userId;
+
+      if (!customerAnalytics[customerId]) {
+        customerAnalytics[customerId] = {
+          customerId,
+          totalOrders: 0,
+          totalSpent: 0,
+          lastOrderDate: null
+        };
+        totalCustomers++;
+      }
+
+      customerAnalytics[customerId].totalOrders++;
+      customerAnalytics[customerId].totalSpent += orderData.total;
+      
+      const orderDate = new Date(orderData.createdAt);
+      if (!customerAnalytics[customerId].lastOrderDate ||
+          orderDate > new Date(customerAnalytics[customerId].lastOrderDate)) {
+        customerAnalytics[customerId].lastOrderDate = orderData.createdAt;
       }
     });
-    
+
+    const customersArray = Object.values(customerAnalytics)
+      .map(customer => ({
+        ...customer,
+        averageOrderValue: customer.totalSpent / customer.totalOrders
+      }))
+      .sort((a, b) => b.totalSpent - a.totalSpent);
+
     res.status(200).json({
       success: true,
       data: {
-        totalUsers,
-        usersByRole
+        totalCustomers,
+        topCustomers: customersArray.slice(0, 10),
+        averageCustomerMetrics: {
+          ordersPerCustomer: customersArray.reduce((acc, curr) => acc + curr.totalOrders, 0) / totalCustomers,
+          revenuePerCustomer: customersArray.reduce((acc, curr) => acc + curr.totalSpent, 0) / totalCustomers
+        }
       }
     });
   } catch (error) {
-    console.error('Get user analytics error:', error);
+    console.error('Get customer analytics error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   GET /api/analytics/dashboard
+ * @desc    Get dashboard overview statistics
+ * @access  Private (Admin, Manager, Superadmin)
+ */
+router.get('/dashboard', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
+  try {
+    // Get current date and start of current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    // Fetch recent orders
+    const ordersSnapshot = await db.collection('orders')
+      .where('createdAt', '>=', startOfMonth)
+      .get();
+
+    // Fetch inventory status
+    const productsSnapshot = await db.collection('products').get();
+
+    // Fetch users
+    const usersSnapshot = await db.collection('users').get();
+
+    // Calculate dashboard metrics
+    let monthlyRevenue = 0;
+    let monthlyOrders = 0;
+    let lowStockProducts = 0;
+    const recentOrders = [];
+
+    // Process orders
+    ordersSnapshot.forEach(doc => {
+      const orderData = doc.data();
+      if (orderData.status !== 'cancelled') {
+        monthlyRevenue += orderData.total;
+        monthlyOrders++;
+      }
+      if (recentOrders.length < 5) {
+        recentOrders.push({
+          id: doc.id,
+          ...orderData
+        });
+      }
+    });
+
+    // Process inventory
+    productsSnapshot.forEach(doc => {
+      const productData = doc.data();
+      if (productData.stockQuantity < 10) {
+        lowStockProducts++;
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        monthlyMetrics: {
+          revenue: monthlyRevenue,
+          orders: monthlyOrders,
+          averageOrderValue: monthlyOrders > 0 ? monthlyRevenue / monthlyOrders : 0
+        },
+        inventoryMetrics: {
+          totalProducts: productsSnapshot.size,
+          lowStockProducts
+        },
+        userMetrics: {
+          totalUsers: usersSnapshot.size
+        },
+        recentOrders: recentOrders.sort((a, b) => 
+          new Date(b.createdAt) - new Date(a.createdAt)
+        )
+      }
+    });
+  } catch (error) {
+    console.error('Get dashboard analytics error:', error);
     next(error);
   }
 });
