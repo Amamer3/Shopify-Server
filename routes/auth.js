@@ -3,11 +3,12 @@ import { body } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import axios from 'axios';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { AppError } from '../middleware/errorHandler.js';
 const router = express.Router();
 
 // Import Firebase config
-import { auth, db, firebaseAdmin } from '../config/firebase.js';
+import { auth, db, firebaseAdmin, firebaseClientAuth } from '../config/firebase.js';
 
 // Import middleware
 import { validateRequest } from '../middleware/errorHandler.js';
@@ -607,39 +608,48 @@ router.post('/login', [
   try {
     const { email, password } = req.body;
 
-    // Sign in with Firebase Authentication
-    const userCredential = await auth.signInWithEmailAndPassword(email, password);
-    const user = userCredential.user;
+    try {
+      // Sign in with Firebase Client SDK
+      const userCredential = await signInWithEmailAndPassword(firebaseClientAuth, email, password);
+      const user = userCredential.user;
 
-    // Get user data from Firestore
-    const userData = await db.collection('users').doc(user.uid).get();
-    const userRole = userData.data().role;
-
-    // Check if user is a regular user
-    if (userRole !== 'user') {
-      throw new AppError('Invalid user type. Please use the admin login endpoint.', 403);
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { uid: user.uid, email: user.email, role: userRole },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    );
-
-    res.status(200).json({
-      success: true,
-      data: {
-        user: {
-          uid: user.uid,
-          email: user.email,
-          role: userRole
-        },
-        token
+      // Get user data from Firestore
+      const userData = await db.collection('users').doc(user.uid).get();
+      if (!userData.exists) {
+        return next(new AppError('User data not found', 404));
       }
-    });
+
+      const userRole = userData.data().role;
+
+      // Check if user is a regular user
+      if (userRole !== 'user') {
+        throw new AppError('Invalid user type. Please use the admin login endpoint.', 403);
+      }
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { uid: user.uid, email: user.email, role: userRole },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN }
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          user: {
+            uid: user.uid,
+            email: user.email,
+            role: userRole
+          },
+          token
+        }
+      });
+    } catch (authError) {
+      console.error('Authentication error:', authError);
+      return next(new AppError('Invalid email or password', 401));
+    }
   } catch (error) {
     console.error('Login error:', error);
-    next(error);
+    next(new AppError('Login failed', 500));
   }
 });
