@@ -22,8 +22,7 @@ router.post('/register', [
   body('firstName').notEmpty().withMessage('First name is required'),
   body('lastName').notEmpty().withMessage('Last name is required'),
   body('email').isEmail().withMessage('Please provide a valid email'),
-  body('password')
-    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
     .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
     .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
     .matches(/[0-9]/).withMessage('Password must contain at least one number')
@@ -287,38 +286,50 @@ router.post('/logout', (req, res) => {
 });
 
 /**
- * @route   POST /api/auth/login
- * @desc    Login user and return JWT token
+ * @route   POST /api/auth/admin/login
+ * @desc    Login for admin, superadmin, and manager roles
  * @access  Public
  */
-router.post('/login', [
+router.post('/admin/login', [
   body('email').isEmail().withMessage('Please provide a valid email'),
   body('password').notEmpty().withMessage('Password is required')
 ], validateRequest, async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Authenticate user with Firebase
-    const userRecord = await auth.getUserByEmail(email);
-    const user = await firebaseAdmin.auth().verifyPassword(email, password);
+    // Sign in with Firebase Authentication
+    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+    const user = userCredential.user;
 
-    if (!user) {
-      return next(new AppError('Invalid credentials', 401));
+    // Get user data from Firestore
+    const userData = await db.collection('users').doc(user.uid).get();
+    const userRole = userData.data().role;
+
+    // Check if user has admin privileges
+    if (!['admin', 'superadmin', 'manager'].includes(userRole)) {
+      throw new AppError('Unauthorized access. Admin privileges required.', 403);
     }
 
-    // Generate JWT token
+    // Generate JWT token with role
     const token = jwt.sign(
-      { uid: userRecord.uid, email, role: userRecord.customClaims.role },
+      { uid: user.uid, email: user.email, role: userRole },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
 
     res.status(200).json({
       success: true,
-      token
+      data: {
+        user: {
+          uid: user.uid,
+          email: user.email,
+          role: userRole
+        },
+        token
+      }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Admin login error:', error);
     next(error);
   }
 });
@@ -541,3 +552,52 @@ router.post('/verify-email', [
 
 // Export router
 export default router;
+
+/**
+ * @route   POST /api/auth/login
+ * @desc    Login for regular users
+ * @access  Public
+ */
+router.post('/login', [
+  body('email').isEmail().withMessage('Please provide a valid email'),
+  body('password').notEmpty().withMessage('Password is required')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    // Sign in with Firebase Authentication
+    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+
+    // Get user data from Firestore
+    const userData = await db.collection('users').doc(user.uid).get();
+    const userRole = userData.data().role;
+
+    // Check if user is a regular user
+    if (userRole !== 'user') {
+      throw new AppError('Invalid user type. Please use the admin login endpoint.', 403);
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { uid: user.uid, email: user.email, role: userRole },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          uid: user.uid,
+          email: user.email,
+          role: userRole
+        },
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    next(error);
+  }
+});
