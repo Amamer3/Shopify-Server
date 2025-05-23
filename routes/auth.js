@@ -33,48 +33,90 @@ router.post('/register', [
     const { email, password, firstName, lastName } = req.body;
     const role = 'user'; // Default role for public registration is 'user'
 
+    // Check if user already exists
+    try {
+      const existingUser = await auth.getUserByEmail(email);
+      if (existingUser) {
+        return next(new AppError('Email already registered', 409));
+      }
+    } catch (error) {
+      if (error.code !== 'auth/user-not-found') {
+        console.error('Error checking existing user:', error);
+        return next(new AppError('Error checking user existence', 500));
+      }
+    }
+
     // Create user in Firebase Authentication
-    const userRecord = await auth.createUser({
-      email,
-      password,
-      displayName: `${firstName} ${lastName}`
-    });
+    let userRecord;
+    try {
+      userRecord = await auth.createUser({
+        email,
+        password,
+        displayName: `${firstName} ${lastName}`
+      });
+    } catch (error) {
+      console.error('Error creating Firebase user:', error);
+      return next(new AppError('Failed to create user account', 500));
+    }
 
     // Store additional user data in Firestore
-    await db.collection('users').doc(userRecord.uid).set({
-      uid: userRecord.uid,
-      firstName,
-      lastName,
-      email,
-      role,
-      createdAt: new Date().toISOString()
-    });
+    try {
+      await db.collection('users').doc(userRecord.uid).set({
+        uid: userRecord.uid,
+        firstName,
+        lastName,
+        email,
+        role,
+        createdAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error storing user data in Firestore:', error);
+      // Attempt to delete the Firebase Auth user if Firestore save fails
+      try {
+        await auth.deleteUser(userRecord.uid);
+      } catch (deleteError) {
+        console.error('Error cleaning up Firebase Auth user after Firestore failure:', deleteError);
+      }
+      return next(new AppError('Failed to save user data', 500));
+    }
 
     // Generate JWT token
-    const token = jwt.sign(
-      { uid: userRecord.uid, email, role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    );
+    let token;
+    try {
+      token = jwt.sign(
+        { uid: userRecord.uid, email, role },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN }
+      );
+    } catch (error) {
+      console.error('Error generating JWT token:', error);
+      return next(new AppError('Failed to generate authentication token', 500));
+    }
 
     // Send password reset email using secure email service
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-    const emailResponse = await fetch(process.env.EMAIL_SERVICE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.EMAIL_SERVICE_KEY}`
-      },
-      body: JSON.stringify({
+    try {
+      const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+      const emailResponse = await axios.post(process.env.EMAIL_SERVICE_URL, {
         to: email,
         subject: 'Password Reset',
         text: `Click the link to reset your password: ${resetLink}`,
         html: `<p>Click <a href="${resetLink}">here</a> to reset your password.</p>`
-      })
-    });
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.EMAIL_SERVICE_KEY}`
+        }
+      });
 
-    if (!emailResponse.ok) {
-      throw new Error('Failed to send password reset email');
+      if (emailResponse.status !== 200) {
+        console.error('Email service error:', emailResponse.data);
+        // Don't throw error here, just log it as the user account is already created
+        console.warn('Failed to send password reset email, but user account was created successfully');
+      }
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      // Don't throw error here, just log it as the user account is already created
+      console.warn('Failed to send password reset email, but user account was created successfully');
     }
 
     res.status(201).json({
@@ -92,7 +134,7 @@ router.post('/register', [
     });
   } catch (error) {
     console.error('Registration error:', error);
-    next(error);
+    next(new AppError('Registration failed', 500));
   }
 });
 

@@ -3,6 +3,25 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Validate required environment variables
+const requiredEnvVars = [
+  'FIREBASE_TYPE',
+  'FIREBASE_PROJECT_ID',
+  'FIREBASE_PRIVATE_KEY_ID',
+  'FIREBASE_PRIVATE_KEY',
+  'FIREBASE_CLIENT_EMAIL',
+  'FIREBASE_CLIENT_ID',
+  'FIREBASE_AUTH_URI',
+  'FIREBASE_TOKEN_URI',
+  'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
+  'FIREBASE_CLIENT_X509_CERT_URL'
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingEnvVars.length > 0) {
+  throw new Error(`Missing required Firebase environment variables: ${missingEnvVars.join(', ')}`);
+}
+
 // Firebase configuration object from environment variables
 const firebaseConfig = {
   type: process.env.FIREBASE_TYPE,
@@ -31,10 +50,11 @@ try {
   console.log('Firebase Admin SDK initialized successfully');
 } catch (error) {
   console.error('Error initializing Firebase Admin SDK:', error);
+  throw new Error('Failed to initialize Firebase Admin SDK. Please check your configuration.');
 }
 
 // Export Firebase services
-export const db = admin.firestore();
-export const auth = admin.auth();
-export const storage = admin.storage();
+export const db = firebaseApp.firestore();
+export const auth = firebaseApp.auth();
+export const storage = firebaseApp.storage();
 export const firebaseAdmin = admin;
