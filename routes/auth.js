@@ -296,158 +296,66 @@ router.post('/login', [
   body('password').notEmpty().withMessage('Password is required')
 ], validateRequest, async (req, res, next) => {
   try {
-    const { email, password, storeTokenInCookie = false } = req.body;
+    const { email, password } = req.body;
 
-    // Verify user exists first
+    // Authenticate user with Firebase
     const userRecord = await auth.getUserByEmail(email);
-    
-    // Sign in with email and password using Firebase Auth REST API
-    const firebaseApiKey = process.env.FIREBASE_API_KEY;
-    if (!firebaseApiKey) {
-      throw new Error('Firebase API key is not configured');
+    const user = await firebaseAdmin.auth().verifyPassword(email, password);
+
+    if (!user) {
+      return next(new AppError('Invalid credentials', 401));
     }
-    
-    const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`;
-    try {
-      await axios.post(signInUrl, {
-        email,
-        password,
-        returnSecureToken: true
-      });
-    } catch (error) {
-      console.error('Firebase authentication error:', error.response?.data || error.message);
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    // Get user data from Firestore
-    const userDoc = await db.collection('users').doc(userRecord.uid).get();
-    
-    if (!userDoc.exists) {
-      return res.status(404).json({ message: 'User not found in database' });
-    }
-    
-    const userData = userDoc.data();
-    
-    // Update last login time
-    await db.collection('users').doc(userRecord.uid).update({
-      lastLogin: new Date().toISOString()
-    });
-    
-    // Verify JWT secret is configured
-    if (!process.env.JWT_SECRET) {
-      console.error('JWT_SECRET is not configured');
-      return next(new AppError('Server configuration error', 500));
-    }
-    
-    // Generate access token
-    let accessToken;
-    try {
-      accessToken = jwt.sign(
-        { uid: userRecord.uid, email, role: userData.role },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
-      );
-      
-      if (!accessToken) {
-        throw new Error('Failed to generate access token');
-      }
-    } catch (error) {
-      console.error('Token generation error:', error);
-      return next(new AppError('Authentication failed: Unable to generate token', 500));
-    }
-    
-    // Generate refresh token
-    let refreshToken;
-    try {
-      refreshToken = jwt.sign(
-        { uid: userRecord.uid },
-        process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
-      );
-      
-      if (!refreshToken) {
-        throw new Error('Failed to generate refresh token');
-      }
-    } catch (error) {
-      console.error('Refresh token generation error:', error);
-      return next(new AppError('Authentication failed: Unable to generate refresh token', 500));
-    }
-    
-    // Set refresh token as HTTP-only cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-    
-    // If client requests to store access token in cookie
-    if (storeTokenInCookie) {
-      res.cookie('accessToken', accessToken, {
-        httpOnly: true,
-        maxAge: 60 * 60 * 1000, // 1 hour
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-      });
-    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { uid: userRecord.uid, email, role: userRecord.customClaims.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
 
     res.status(200).json({
       success: true,
-      data: {
-        user: {
-          uid: userRecord.uid,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          email,
-          role: userData.role,
-          lastLogin: new Date().toISOString()
-        },
-        accessToken,
-        expiresIn: 3600 // 1 hour in seconds
-      }
+      token
     });
   } catch (error) {
     console.error('Login error:', error);
-    
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-      return next(new AppError('Invalid email or password', 401));
-    }
-    
-    if (error.code === 'auth/too-many-requests') {
-      return next(new AppError('Too many failed login attempts. Please try again later or reset your password.', 429));
-    }
-    
     next(error);
   }
 });
 
 /**
  * @route   POST /api/auth/register-admin
- * @desc    Register a new admin (superadmin only)
- * @access  Private (superadmin)
+ * @desc    Register a new admin (superadmin access only)
+ * @access  Superadmin
  */
 router.post('/register-admin', protect, authorize('superadmin'), [
+  body('firstName').notEmpty().withMessage('First name is required'),
+  body('lastName').notEmpty().withMessage('Last name is required'),
   body('email').isEmail().withMessage('Please provide a valid email'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
 ], validateRequest, async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, firstName, lastName } = req.body;
     const role = 'admin';
 
     // Create admin user in Firebase Authentication
     const userRecord = await auth.createUser({
       email,
       password,
-      displayName: email.split('@')[0] // Use part of email as display name
+      displayName: `${firstName} ${lastName}`
     });
 
-    // Store admin data in Firestore
+    // Set custom claims for admin role
+    await firebaseAdmin.auth().setCustomUserClaims(userRecord.uid, { role });
+
+    // Store additional user data in Firestore
     await db.collection('users').doc(userRecord.uid).set({
       uid: userRecord.uid,
+      firstName,
+      lastName,
       email,
       role,
-      createdAt: new Date().toISOString(),
-      createdBy: req.user.uid // Track which superadmin created this admin
+      createdAt: new Date().toISOString()
     });
 
     res.status(201).json({
@@ -455,6 +363,8 @@ router.post('/register-admin', protect, authorize('superadmin'), [
       data: {
         user: {
           uid: userRecord.uid,
+          firstName,
+          lastName,
           email,
           role
         }
@@ -468,45 +378,37 @@ router.post('/register-admin', protect, authorize('superadmin'), [
 
 /**
  * @route   POST /api/auth/register-superadmin
- * @desc    Register a new superadmin (first-time setup or existing superadmin only)
- * @access  Private (superadmin) or special setup process
+ * @desc    Register a new superadmin (superadmin access only)
+ * @access  Superadmin
  */
 router.post('/register-superadmin', protect, authorize('superadmin'), [
+  body('firstName').notEmpty().withMessage('First name is required'),
+  body('lastName').notEmpty().withMessage('Last name is required'),
   body('email').isEmail().withMessage('Please provide a valid email'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
-  body('permissions').optional().isArray().withMessage('Permissions must be an array')
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
 ], validateRequest, async (req, res, next) => {
   try {
-    const { email, password, permissions = [] } = req.body;
+    const { email, password, firstName, lastName } = req.body;
     const role = 'superadmin';
-
-    // Check if email already exists
-    try {
-      const existingUser = await auth.getUserByEmail(email);
-      if (existingUser) {
-        return next(new AppError('Email already registered', 400));
-      }
-    } catch (error) {
-      if (error.code !== 'auth/user-not-found') {
-        throw error;
-      }
-    }
 
     // Create superadmin user in Firebase Authentication
     const userRecord = await auth.createUser({
       email,
       password,
-      displayName: email.split('@')[0] // Use part of email as display name
+      displayName: `${firstName} ${lastName}`
     });
 
-    // Store superadmin data in Firestore
+    // Set custom claims for superadmin role
+    await firebaseAdmin.auth().setCustomUserClaims(userRecord.uid, { role });
+
+    // Store additional user data in Firestore
     await db.collection('users').doc(userRecord.uid).set({
       uid: userRecord.uid,
+      firstName,
+      lastName,
       email,
       role,
-      permissions,
-      createdAt: new Date().toISOString(),
-      createdBy: req.user.uid // Track which superadmin created this superadmin
+      createdAt: new Date().toISOString()
     });
 
     res.status(201).json({
@@ -514,49 +416,15 @@ router.post('/register-superadmin', protect, authorize('superadmin'), [
       data: {
         user: {
           uid: userRecord.uid,
+          firstName,
+          lastName,
           email,
-          role,
-          permissions
+          role
         }
       }
     });
   } catch (error) {
     console.error('Superadmin registration error:', error);
-    
-    if (error.code === 'auth/email-already-exists') {
-      return next(new AppError('Email already registered', 400));
-    }
-    
-    if (error.code === 'auth/invalid-password') {
-      return next(new AppError('Invalid password format', 400));
-    }
-    
-    next(new AppError('Failed to create superadmin user', 500));
-  }
-});
-
-/**
- * @route   POST /api/auth/verify-email
- * @desc    Verify user email
- * @access  Private
- */
-router.post('/verify-email', protect, async (req, res, next) => {
-  try {
-    // In a real implementation, you would generate a verification link
-    // and send it to the user's email
-    
-    // For now, we'll just mark the user as verified
-    await db.collection('users').doc(req.user.uid).update({
-      emailVerified: true,
-      updatedAt: new Date().toISOString()
-    });
-    
-    res.status(200).json({
-      success: true,
-      message: 'Email verified successfully'
-    });
-  } catch (error) {
-    console.error('Email verification error:', error);
     next(error);
   }
 });
@@ -572,82 +440,101 @@ router.post('/forgot-password', [
   try {
     const { email } = req.body;
 
-    // Check if user exists
-    const userRecord = await auth.getUserByEmail(email);
-    
-    // Generate reset token
-    const resetToken = crypto.randomBytes(20).toString('hex');
-    const resetTokenExpire = Date.now() + 3600000; // 1 hour
-    
-    // Store reset token in Firestore
-    await db.collection('passwordResets').doc(userRecord.uid).set({
-      resetToken,
-      resetTokenExpire,
-      email
+    // Generate password reset link
+    const resetLink = await firebaseAdmin.auth().generatePasswordResetLink(email);
+
+    // Send password reset email
+    await axios.post(process.env.EMAIL_SERVICE_URL, {
+      to: email,
+      subject: 'Password Reset Request',
+      text: `Click the link to reset your password: ${resetLink}`,
+      html: `<p>Click <a href="${resetLink}">here</a> to reset your password.</p>`
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.EMAIL_SERVICE_KEY}`
+      }
     });
-    
-    // In a production environment, you would send an email with the reset link
-    // For now, we'll just return the token in the response
+
     res.status(200).json({
       success: true,
-      message: 'Password reset email sent',
-      data: {
-        resetToken,
-        // In production, remove this and send via email instead
-        resetUrl: `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
-      }
+      message: 'Password reset email sent'
     });
   } catch (error) {
     console.error('Forgot password error:', error);
-    // Don't reveal if the email exists or not for security
-    res.status(200).json({
-      success: true,
-      message: 'If that email exists, a password reset link has been sent'
-    });
+    next(error);
   }
 });
 
 /**
  * @route   POST /api/auth/reset-password/:token
- * @desc    Reset password using token
+ * @desc    Reset user password with token
  * @access  Public
  */
 router.post('/reset-password/:token', [
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
 ], validateRequest, async (req, res, next) => {
   try {
     const { token } = req.params;
     const { password } = req.body;
-    
-    // Find reset token in database
-    const resetDocsSnapshot = await db.collection('passwordResets')
-      .where('resetToken', '==', token)
-      .where('resetTokenExpire', '>', Date.now())
-      .get();
-    
-    if (resetDocsSnapshot.empty) {
-      return res.status(400).json({ message: 'Invalid or expired token' });
+
+    // Verify reset token and get user
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await auth.getUser(decoded.uid);
+
+    if (!user) {
+      return next(new AppError('Invalid token', 401));
     }
-    
-    // Get the first matching document
-    const resetDoc = resetDocsSnapshot.docs[0];
-    const resetData = resetDoc.data();
-    const userId = resetDoc.id;
-    
-    // Update user password
-    await auth.updateUser(userId, {
-      password
-    });
-    
-    // Delete the reset token
-    await db.collection('passwordResets').doc(userId).delete();
-    
+
+    // Update user password in Firebase Authentication
+    await auth.updateUser(user.uid, { password });
+
+    // Update user password in Firestore database
+    await db.collection('users').doc(user.uid).update({ password });
+
     res.status(200).json({
       success: true,
-      message: 'Password has been reset successfully'
+      message: 'Password has been reset'
     });
   } catch (error) {
     console.error('Reset password error:', error);
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify user email address
+ * @access  Public
+ */
+router.post('/verify-email', [
+  body('email').isEmail().withMessage('Please provide a valid email')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Generate email verification link
+    const verifyLink = await firebaseAdmin.auth().generateEmailVerificationLink(email);
+
+    // Send verification email
+    await axios.post(process.env.EMAIL_SERVICE_URL, {
+      to: email,
+      subject: 'Email Verification',
+      text: `Click the link to verify your email: ${verifyLink}`,
+      html: `<p>Click <a href="${verifyLink}">here</a> to verify your email.</p>`
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.EMAIL_SERVICE_KEY}`
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Verification email sent'
+    });
+  } catch (error) {
+    console.error('Verify email error:', error);
     next(error);
   }
 });

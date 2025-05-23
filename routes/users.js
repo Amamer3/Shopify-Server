@@ -174,4 +174,49 @@ router.delete('/:id', protect, authorize('admin'), async (req, res, next) => {
   }
 });
 
+/**
+ * @route   POST /api/users
+ * @desc    Create a new user or admin
+ * @access  Private (Admin, Superadmin)
+ */
+router.post('/', [
+  protect,
+  authorize('admin', 'superadmin'),
+  body('email').isEmail().withMessage('Please provide a valid email'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('role').isIn(['admin', 'manager', 'staff']).withMessage('Invalid role')
+], validateRequest, async (req, res, next) => {
+  try {
+    const { email, password, role } = req.body;
+
+    // Create user in Firebase Auth
+    const userRecord = await auth.createUser({
+      email,
+      password
+    });
+
+    // Set custom claims for role
+    await auth.setCustomUserClaims(userRecord.uid, { role });
+
+    // Add user to Firestore
+    await db.collection('users').doc(userRecord.uid).set({
+      email,
+      role,
+      createdAt: new Date().toISOString()
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: userRecord.uid,
+        email,
+        role
+      }
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    next(error);
+  }
+});
+
 export default router;

@@ -12,9 +12,10 @@ import { protect, authorize } from '../middleware/auth.js';
  * @desc    Get sales analytics
  * @access  Private (Admin, Manager, Superadmin)
  */
+// Enhance sales analytics with filtering and sorting
 router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
   try {
-    const { period = 'month' } = req.query;
+    const { period = 'month', sortBy = 'totalSales', order = 'desc' } = req.query;
     
     // Calculate date range based on period
     const now = new Date();
@@ -73,7 +74,7 @@ router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async
     });
     
     const topProducts = Object.values(productSales)
-      .sort((a, b) => b.revenue - a.revenue)
+      .sort((a, b) => order === 'desc' ? b[sortBy] - a[sortBy] : a[sortBy] - b[sortBy])
       .slice(0, 5);
     
     res.status(200).json({
@@ -93,13 +94,10 @@ router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async
   }
 });
 
-/**
- * @route   GET /api/analytics/products
- * @desc    Get product performance analytics
- * @access  Private (Admin, Manager, Superadmin)
- */
+// Enhance product analytics with detailed metrics
 router.get('/products', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
   try {
+    const { sortBy = 'totalRevenue', order = 'desc' } = req.query;
     const productsSnapshot = await db.collection('products').get();
     const ordersSnapshot = await db.collection('orders')
       .where('status', '!=', 'cancelled')
@@ -139,7 +137,7 @@ router.get('/products', protect, authorize('admin', 'manager', 'superadmin'), as
         ...product,
         averageOrderValue: product.totalOrders > 0 ? product.totalRevenue / product.totalOrders : 0
       }))
-      .sort((a, b) => b.totalRevenue - a.totalRevenue);
+      .sort((a, b) => order === 'desc' ? b[sortBy] - a[sortBy] : a[sortBy] - b[sortBy]);
 
     res.status(200).json({
       success: true,
@@ -155,13 +153,10 @@ router.get('/products', protect, authorize('admin', 'manager', 'superadmin'), as
   }
 });
 
-/**
- * @route   GET /api/analytics/customers
- * @desc    Get customer analytics
- * @access  Private (Admin, Manager, Superadmin)
- */
+// Enhance customer analytics with detailed metrics
 router.get('/customers', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
   try {
+    const { sortBy = 'totalSpent', order = 'desc' } = req.query;
     const ordersSnapshot = await db.collection('orders')
       .where('status', '!=', 'cancelled')
       .get();
@@ -198,7 +193,7 @@ router.get('/customers', protect, authorize('admin', 'manager', 'superadmin'), a
         ...customer,
         averageOrderValue: customer.totalSpent / customer.totalOrders
       }))
-      .sort((a, b) => b.totalSpent - a.totalSpent);
+      .sort((a, b) => order === 'desc' ? b[sortBy] - a[sortBy] : a[sortBy] - b[sortBy]);
 
     res.status(200).json({
       success: true,
@@ -217,11 +212,7 @@ router.get('/customers', protect, authorize('admin', 'manager', 'superadmin'), a
   }
 });
 
-/**
- * @route   GET /api/analytics/dashboard
- * @desc    Get dashboard overview statistics
- * @access  Private (Admin, Manager, Superadmin)
- */
+// Enhance dashboard analytics with more metrics
 router.get('/dashboard', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
   try {
     // Get current date and start of current month

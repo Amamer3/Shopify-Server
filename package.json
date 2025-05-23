@@ -4,7 +4,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
@@ -14,8 +14,8 @@
   "description": "Node.js backend server for Shopify with Express.js and Firebase integration",
   "dependencies": {
     "axios": "^1.6.7",
-    "cookie-parser": "^1.4.6",
     "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
@@ -32,6 +32,11 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
-  }
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.1",
+    "babel-jest": "^29.7.0",
+    "@babel/core": "^7.21.0",
+    "@babel/preset-env": "^7.21.0"
+ }
 }

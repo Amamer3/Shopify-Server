@@ -4,12 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
-
-// Import routes
-import productRoutes from './routes/products.js';
+import productsRouter from './routes/products.js';
 import orderRoutes from './routes/orders.js';
 import userRoutes from './routes/users.js';
 import analyticsRoutes from './routes/analytics.js';
@@ -88,7 +83,7 @@ app.use('/api', limiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
+app.use('/api/products', productsRouter);
 app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
@@ -156,3 +151,4 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 export default app;
+dotenv.config();
