@@ -16,6 +16,8 @@ A Node.js backend server for Shopify with Express.js and Firebase integration. T
   - User management (`/api/users`)
   - Analytics data (`/api/analytics`)
   - Inventory control (`/api/inventory`)
+  - User profiles (`/api/profile`)
+  - Wishlist management (`/api/wishlist`)
 
 - **Firebase Integration**
   - Firestore for data storage
@@ -97,6 +99,53 @@ npm start
 ```
 
 ## API Documentation
+
+### Profile Endpoints
+
+#### Get User Profile
+- **URL**: `/api/profile`
+- **Method**: `GET`
+- **Auth**: Required
+- **Description**: Get user's profile information including addresses and payment methods
+- **Response**: User profile data with addresses and payment methods
+
+#### Get User Orders
+- **URL**: `/api/profile/orders`
+- **Method**: `GET`
+- **Auth**: Required
+- **Description**: Get user's order history
+- **Response**: List of user's orders
+
+### Wishlist Endpoints
+
+#### Add to Wishlist
+- **URL**: `/api/wishlist`
+- **Method**: `POST`
+- **Auth**: Required
+- **Body**: `{ "productId": "string" }`
+- **Description**: Add a product to user's wishlist
+- **Response**: Success message
+
+#### Get Wishlist
+- **URL**: `/api/wishlist`
+- **Method**: `GET`
+- **Auth**: Required
+- **Description**: Get user's wishlist with product details
+- **Response**: List of products in wishlist
+
+#### Remove from Wishlist
+- **URL**: `/api/wishlist/:productId`
+- **Method**: `DELETE`
+- **Auth**: Required
+- **Description**: Remove a product from wishlist
+- **Response**: Success message
+
+#### Clear Wishlist
+- **URL**: `/api/wishlist`
+- **Method**: `DELETE`
+- **Auth**: Required
+- **Description**: Remove all products from wishlist
+- **Response**: Success message
 
 ### Authentication
 

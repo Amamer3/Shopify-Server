@@ -452,24 +452,9 @@ router.delete('/payment-methods/:id', protect, async (req, res, next) => {
  */
 router.get('/orders', protect, async (req, res, next) => {
   try {
-    // Pagination parameters
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const startAt = (page - 1) * limit;
-
-    // Get total count
-    const countSnapshot = await db.collection('orders')
-      .where('userId', '==', req.user.uid)
-      .get();
-    
-    const totalOrders = countSnapshot.size;
-
-    // Get paginated orders
     const ordersSnapshot = await db.collection('orders')
       .where('userId', '==', req.user.uid)
       .orderBy('createdAt', 'desc')
-      .limit(limit)
-      .offset(startAt)
       .get();
     
     const orders = [];
@@ -482,17 +467,10 @@ router.get('/orders', protect, async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      count: orders.length,
-      totalOrders,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(totalOrders / limit),
-        limit
-      },
       data: orders
     });
   } catch (error) {
-    console.error('Get order history error:', error);
+    console.error('Get profile orders error:', error);
     next(error);
   }
 });

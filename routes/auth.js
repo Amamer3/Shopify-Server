@@ -609,24 +609,43 @@ router.post('/login', [
     const { email, password } = req.body;
 
     // Sign in with Firebase Client Auth
-    const userCredential = await signInWithEmailAndPassword(firebaseClientAuth, email, password);
+    let userCredential;
+    try {
+      userCredential = await signInWithEmailAndPassword(firebaseClientAuth, email, password);
+    } catch (authError) {
+      console.error('Firebase Authentication error:', authError);
+      return next(new AppError(authError.message || 'Invalid email or password', 401));
+    }
+
     const user = userCredential.user;
 
     // Get user data from Firestore
-    const userDoc = await db.collection('users').doc(user.uid).get();
-    if (!userDoc.exists) {
-      throw new AppError('User data not found', 404);
+    let userDoc;
+    try {
+      userDoc = await db.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) {
+        throw new Error('User data not found');
+      }
+    } catch (dbError) {
+      console.error('Firestore error:', dbError);
+      return next(new AppError('Error retrieving user data', 500));
     }
 
     const userData = userDoc.data();
     const userRole = userData.role || 'user';
 
     // Generate JWT token with role
-    const token = jwt.sign(
-      { uid: user.uid, email: user.email, role: userRole },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    );
+    let token;
+    try {
+      token = jwt.sign(
+        { uid: user.uid, email: user.email, role: userRole },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN }
+      );
+    } catch (tokenError) {
+      console.error('JWT generation error:', tokenError);
+      return next(new AppError('Error generating authentication token', 500));
+    }
 
     res.status(200).json({
       success: true,
@@ -642,7 +661,7 @@ router.post('/login', [
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
-    next(new AppError('Authentication failed', 401));
+    console.error('Unexpected login error:', error);
+    next(new AppError('Authentication failed', 500));
   }
 });

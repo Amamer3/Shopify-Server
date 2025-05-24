@@ -14,6 +14,7 @@ import cartRoutes from './routes/cart.js';
 import categoryRoutes from './routes/categories.js';
 import profileRoutes from './routes/profile.js';
 import paymentsRoutes from './routes/payments.js';
+import wishlistRoutes from './routes/wishlist.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -85,16 +86,17 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // Routes
-app.use('/api/auth', authRoutes);
 app.use('/api/products', productsRouter);
 app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/payments', paymentsRoutes);
+app.use('/api/wishlist', wishlistRoutes);
 
 // Health check endpoints
 app.get('/health', (req, res) => {
