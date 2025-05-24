@@ -71,12 +71,15 @@ router.get('/:id', protect, async (req, res, next) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Update user classification to customer
+    const customerData = {
+      id: userDoc.id,
+      ...userDoc.data(),
+      classification: 'customer'
+    };
     res.status(200).json({
       success: true,
-      data: {
-        id: userDoc.id,
-        ...userDoc.data()
-      }
+      data: customerData
     });
   } catch (error) {
     console.error('Get user error:', error);
