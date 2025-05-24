@@ -17,11 +17,13 @@ const requiredEnvVars = [
   'FIREBASE_TOKEN_URI',
   'FIREBASE_AUTH_PROVIDER_X509_CERT_URL',
   'FIREBASE_CLIENT_X509_CERT_URL',
-  'FIREBASE_API_KEY'
+  'FIREBASE_API_KEY',
+  'FIREBASE_APP_ID'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 if (missingEnvVars.length > 0) {
+  console.error('Missing Firebase environment variables:', missingEnvVars);
   throw new Error(`Missing required Firebase environment variables: ${missingEnvVars.join(', ')}`);
 }
 
@@ -66,7 +68,15 @@ try {
 }
 
 // Initialize Firebase Client SDK
-const clientApp = initializeApp(firebaseClientConfig);
+let clientApp;
+try {
+  clientApp = initializeApp(firebaseClientConfig);
+  console.log('Firebase Client SDK initialized successfully');
+} catch (error) {
+  console.error('Error initializing Firebase Client SDK:', error);
+  throw new Error('Failed to initialize Firebase Client SDK. Please check your configuration.');
+}
+
 const clientAuth = getAuth(clientApp);
 
 // Export Firebase services
