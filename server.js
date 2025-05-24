@@ -21,6 +21,9 @@ import { errorHandler } from './middleware/errorHandler.js';
 // Initialize express app
 const app = express();
 
+// Enable trust proxy
+app.set('trust proxy', 1);
+
 // Configure CORS for frontend environments
 app.use(cors({
   origin: [
