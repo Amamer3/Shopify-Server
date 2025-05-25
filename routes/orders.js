@@ -14,7 +14,7 @@ import { protect, authorize } from '../middleware/auth.js';
  * @desc    Get all orders
  * @access  Private (Admin, Manager)
  */
-router.get('/', protect, authorize('admin', 'manager'), async (req, res, next) => {
+router.get('/', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     const ordersSnapshot = await db.collection('orders').get();
     const orders = [];
@@ -84,7 +84,7 @@ router.get('/:id', protect, async (req, res, next) => {
     const orderData = orderDoc.data();
 
     // Check if the user is authorized to view this order
-    if (orderData.userId !== req.user.uid && !['admin', 'manager'].includes(req.user.role)) {
+    if (orderData.userId !== req.user.uid && !['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Not authorized to view this order' });
     }
 
@@ -192,7 +192,7 @@ router.post('/', [
  */
 router.put('/:id/status', [
   protect,
-  authorize('admin', 'manager'),
+  authorize('admin', 'superadmin'),
   body('status').isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled'])
     .withMessage('Invalid status')
 ], validateRequest, async (req, res, next) => {
@@ -234,7 +234,7 @@ router.put('/:id/status', [
  * @desc    Delete an order
  * @access  Private (Admin)
  */
-router.delete('/:id', protect, authorize('admin'), async (req, res, next) => {
+router.delete('/:id', protect, authorize('admin,superadmin'), async (req, res, next) => {
   try {
     // Check if order exists
     const orderDoc = await db.collection('orders').doc(req.params.id).get();
