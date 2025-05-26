@@ -20,54 +20,30 @@ import wishlistRoutes from './routes/wishlist.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
+import { verifyToken } from './middleware/auth.js';
+import Order from './models/order.js';
+import Cart from './models/cart.js';
+import User from './models/user.js';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis';
+import { createRateLimiter } from '@socket.io/rate-limiter';
 
-// Initialize express app and socket.io
+// Helper function for user status management
+async function updateUserStatus(userId, status) {
+  try {
+    // Update user's online status in the database
+    await User.findByIdAndUpdate(userId, { status, lastSeen: new Date() });
+  } catch (error) {
+    console.error('Error updating user status:', error);
+  }
+}
+
+// Initialize express app and create HTTP server
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.NODE_ENV === 'production'
-      ? [process.env.FRONTEND_URL, 'https://shopify-dashboard-woad.vercel.app', 'http://localhost:8080']
-      : ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173', 'http://127.0.0.1:5173'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true
-  }
-});
 
-// Socket.IO event handlers
-io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
-
-  // Join room for user-specific updates
-  socket.on('join', (userId) => {
-    socket.join(`user_${userId}`);
-    socket.join('admin'); // Join admin room if user is admin
-  });
-
-  // Handle order updates
-  socket.on('orderUpdate', (data) => {
-    io.to(`user_${data.userId}`).emit('orderStatusChanged', data);
-    io.to('admin').emit('newOrderUpdate', data);
-  });
-
-  // Handle inventory updates
-  socket.on('inventoryUpdate', (data) => {
-    io.emit('productStockChanged', data);
-  });
-
-  // Handle new notifications
-  socket.on('notification', (data) => {
-    if (data.type === 'admin') {
-      io.to('admin').emit('newNotification', data);
-    } else {
-      io.to(`user_${data.userId}`).emit('newNotification', data);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-  });
-});
+// Initialize Socket.IO service
+const socketService = new SocketService(httpServer);
 
 // Make io accessible to route handlers
 app.set('io', io);
