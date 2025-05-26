@@ -184,19 +184,28 @@ npm start
 
 ### Orders
 
-- `GET /api/orders` - Get all orders (Admin, Manager)
+- `GET /api/orders` - Get all orders (Admin, Superadmin, Manager)
 - `GET /api/orders/my-orders` - Get orders for current user
 - `GET /api/orders/:id` - Get single order
 - `POST /api/orders` - Create a new order
-- `PUT /api/orders/:id/status` - Update order status (Admin, Manager)
-- `DELETE /api/orders/:id` - Cancel order (Admin or order owner)
+- `PUT /api/orders/:id/status` - Update order status (Admin, Superadmin, Manager)
+- `DELETE /api/orders/:id` - Cancel order (Admin, Superadmin or order owner)
+- `GET /api/orders` - Get all orders (Superadmin, Admin, Manager)
+- `GET /api/orders/my-orders` - Get orders for the current user
+- `DELETE /api/orders/:id` - Delete an order (Superadmin, Admin)
+
 
 ### User Management
 
-- `GET /api/users` - Get all users (Admin)
-- `GET /api/users/:id` - Get single user (Admin or own profile)
-- `PUT /api/users/:id` - Update user profile (Admin or own profile)
-- `DELETE /api/users/:id` - Delete user (Admin)
+- `GET /api/users` - Get all users (Admin, Superadmin)
+- `GET /api/users/:id` - Get single user (Admin, Superadmin or own profile)
+- `PUT /api/users/:id` - Update user profile (Admin, Superadmin or own profile)
+- `DELETE /api/users/:id` - Delete user (Admin, Superadmin)
+### Users
+- `GET /api/users` - Get all users (Superadmin, Admin)
+- `GET /api/users/:id` - Get single user (Superadmin, Admin, or own profile)
+- `PUT /api/users/:id` - Update user profile (Superadmin, Admin, or own profile)
+- `DELETE /api/users/:id` - Delete a user (Superadmin, Admin)
 
 ### Profile Management
 
@@ -209,58 +218,39 @@ npm start
 - `DELETE /api/profile/payment-methods/:id` - Delete payment method
 - `GET /api/profile/orders` - Get user's order history with pagination
 
-### Analytics (Admin, Manager)
+### Analytics (Superadmin, Admin, Manager)
 
 - `GET /api/analytics/sales` - Get sales analytics by period (day, week, month, year)
 - `GET /api/analytics/products` - Get product performance analytics
 - `GET /api/analytics/customers` - Get customer analytics
 - `GET /api/analytics/dashboard` - Get dashboard overview statistics
+- `GET /api/analytics/sales` - Get sales analytics (Superadmin, Admin, Manager)
+- `GET /api/analytics/inventory` - Get inventory analytics (Superadmin, Admin, Manager)
+- `GET /api/analytics/users` - Get user analytics (Superadmin, Admin)
 
 ### Inventory Management
 
-- `GET /api/inventory` - Get inventory status for all products (Admin, Manager, Staff)
-- `GET /api/inventory/low-stock` - Get products with low stock (Admin, Manager, Staff)
-- `PUT /api/inventory/:id` - Update product inventory (Admin, Manager)
-- `POST /api/inventory/bulk-update` - Bulk update inventory (Admin, Manager)
-- `POST /api/inventory/stock-alert` - Configure stock alert thresholds (Admin, Manager)
+- `GET /api/inventory` - Get inventory status for all products (Superadmin, Admin, Manager, Staff)
+- `GET /api/inventory/low-stock` - Get products with low stock (Superadmin, Admin, Manager, Staff)
+- `PUT /api/inventory/:id` - Update product inventory (Superadmin,vAdmin, Manager)
+- `POST /api/inventory/bulk-update` - Bulk update inventory (Superadmin, Admin, Manager)
+- `POST /api/inventory/stock-alert` - Configure stock alert thresholds (Superadmin, Admin, Manager)
 
 ### Products
 
 - `GET /api/products` - Get all products
 - `GET /api/products/:id` - Get single product
-- `POST /api/products` - Create a new product (Admin, Manager)
-- `PUT /api/products/:id` - Update a product (Admin, Manager)
-- `DELETE /api/products/:id` - Delete a product (Admin)
-
-### Orders
-
-- `GET /api/orders` - Get all orders (Admin, Manager)
-- `GET /api/orders/my-orders` - Get orders for the current user
-- `GET /api/orders/:id` - Get single order
-- `POST /api/orders` - Create a new order
-- `PUT /api/orders/:id/status` - Update order status (Admin, Manager)
-- `DELETE /api/orders/:id` - Delete an order (Admin)
-
-### Users
-
-- `GET /api/users` - Get all users (Admin)
-- `GET /api/users/:id` - Get single user (Admin, or own profile)
-- `PUT /api/users/:id` - Update user profile (Admin, or own profile)
-- `DELETE /api/users/:id` - Delete a user (Admin)
-
-### Analytics
-
-- `GET /api/analytics/sales` - Get sales analytics (Admin, Manager)
-- `GET /api/analytics/inventory` - Get inventory analytics (Admin, Manager)
-- `GET /api/analytics/users` - Get user analytics (Admin)
+- `POST /api/products` - Create a new product (Superadmin, Admin, Manager)
+- `PUT /api/products/:id` - Update a product (Superadmin, Admin, Manager)
+- `DELETE /api/products/:id` - Delete a product (Superadmin, Admin)
 
 ### Inventory
 
 - `GET /api/inventory` - Get inventory status for all products
 - `GET /api/inventory/low-stock` - Get products with low stock
-- `PUT /api/inventory/:id` - Update product inventory (Admin, Manager)
-- `POST /api/inventory/bulk-update` - Bulk update product inventory (Admin, Manager)
-- `GET /api/inventory/history/:id` - Get inventory history for a product (Admin, Manager)
+- `PUT /api/inventory/:id` - Update product inventory (Superadmin, Admin, Manager)
+- `POST /api/inventory/bulk-update` - Bulk update product inventory (Superadmin, Admin, Manager)
+- `GET /api/inventory/history/:id` - Get inventory history for a product (Superadmin, Admin, Manager)
 
 ### Payments
 - POST /api/payments/initialize - Initializes a payment transaction with Paystack

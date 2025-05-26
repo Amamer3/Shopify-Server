@@ -30,6 +30,7 @@
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^2.7.0",
     "paystack": "^2.0.1",
+    "socket.io": "^4.8.1",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

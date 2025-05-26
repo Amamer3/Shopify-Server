@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import productsRouter from './routes/products.js';
 import orderRoutes from './routes/orders.js';
 import userRoutes from './routes/users.js';
@@ -19,8 +21,56 @@ import wishlistRoutes from './routes/wishlist.js';
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
 
-// Initialize express app
+// Initialize express app and socket.io
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.NODE_ENV === 'production'
+      ? [process.env.FRONTEND_URL, 'https://shopify-dashboard-woad.vercel.app', 'http://localhost:8080']
+      : ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true
+  }
+});
+
+// Socket.IO event handlers
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  // Join room for user-specific updates
+  socket.on('join', (userId) => {
+    socket.join(`user_${userId}`);
+    socket.join('admin'); // Join admin room if user is admin
+  });
+
+  // Handle order updates
+  socket.on('orderUpdate', (data) => {
+    io.to(`user_${data.userId}`).emit('orderStatusChanged', data);
+    io.to('admin').emit('newOrderUpdate', data);
+  });
+
+  // Handle inventory updates
+  socket.on('inventoryUpdate', (data) => {
+    io.emit('productStockChanged', data);
+  });
+
+  // Handle new notifications
+  socket.on('notification', (data) => {
+    if (data.type === 'admin') {
+      io.to('admin').emit('newNotification', data);
+    } else {
+      io.to(`user_${data.userId}`).emit('newNotification', data);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
+// Make io accessible to route handlers
+app.set('io', io);
 
 // Enable trust proxy
 app.set('trust proxy', 1);
@@ -139,11 +189,14 @@ app.use((err, req, res, next) => {
 // Error handling middleware
 app.use(errorHandler);
 
+// Load environment variables
+dotenv.config();
+
 // Start server
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log('Socket.IO is ready for connections');
 });
 
 export default app;
-dotenv.config();
