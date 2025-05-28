@@ -3,11 +3,40 @@ import { body } from 'express-validator';
 import { validateRequest } from '../middleware/errorHandler.js';
 import { protect } from '../middleware/auth.js';
 import crypto from 'crypto';
+import axios from 'axios';
 const router = express.Router();
 
 // Initialize Paystack
 import paystack from 'paystack';
 const paystackClient = paystack(process.env.PAYSTACK_SECRET_KEY);
+
+// Create secure Axios instance
+const secureAxios = axios.create({
+  baseURL: 'https://api.paystack.co',
+  headers: {
+    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+    'Content-Type': 'application/json'
+  },
+  timeout: 10000 // 10 second timeout
+});
+
+// Add request interceptor for security
+secureAxios.interceptors.request.use(config => {
+  // Sanitize request data
+  if (config.data) {
+    config.data = JSON.parse(JSON.stringify(config.data));
+  }
+  return config;
+});
+
+// Add response interceptor for error handling
+secureAxios.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('Paystack API Error:', error.response?.data || error.message);
+    throw error;
+  }
+);
 
 /**
  * @route   POST /api/payments/initialize
@@ -37,11 +66,20 @@ router.post('/initialize', [
       }
     };
     
-    const response = await paystackClient.transaction.initialize(initializeOptions);
+    // Use both Paystack SDK and secure Axios for double verification
+    const [paystackResponse, axiosResponse] = await Promise.all([
+      paystackClient.transaction.initialize(initializeOptions),
+      secureAxios.post('/transaction/initialize', initializeOptions)
+    ]);
+
+    // Verify both responses match
+    if (paystackResponse.data.authorization_url !== axiosResponse.data.data.authorization_url) {
+      throw new Error('Payment initialization verification failed');
+    }
     
     res.status(200).json({
       success: true,
-      data: response.data
+      data: paystackResponse.data
     });
   } catch (error) {
     console.error('Payment initialization error:', error);
@@ -58,22 +96,28 @@ router.get('/verify/:reference', protect, async (req, res, next) => {
   try {
     const { reference } = req.params;
     
-    const response = await paystackClient.transaction.verify(reference);
+    // Use both Paystack SDK and secure Axios for double verification
+    const [paystackResponse, axiosResponse] = await Promise.all([
+      paystackClient.transaction.verify(reference),
+      secureAxios.get(`/transaction/verify/${reference}`)
+    ]);
+
+    // Verify both responses match
+    if (paystackResponse.data.status !== axiosResponse.data.data.status) {
+      throw new Error('Payment verification mismatch');
+    }
     
-    if (response.data.status === 'success') {
-      // Here you would update your database to mark the order as paid
-      // This is where you'd implement order fulfillment logic
-      
+    if (paystackResponse.data.status === 'success') {
       res.status(200).json({
         success: true,
         message: 'Payment verified successfully',
-        data: response.data
+        data: paystackResponse.data
       });
     } else {
       res.status(400).json({
         success: false,
         message: 'Payment verification failed',
-        data: response.data
+        data: paystackResponse.data
       });
     }
   } catch (error) {

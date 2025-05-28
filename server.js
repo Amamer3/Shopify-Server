@@ -17,17 +17,12 @@ import categoryRoutes from './routes/categories.js';
 import profileRoutes from './routes/profile.js';
 import paymentsRoutes from './routes/payments.js';
 import wishlistRoutes from './routes/wishlist.js';
-
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
 import { verifyToken } from './middleware/auth.js';
-import Order from './models/order.js';
-import Cart from './models/cart.js';
-import User from './models/user.js';
-import { createAdapter } from '@socket.io/redis-adapter';
-import { createClient } from 'redis';
-import { createRateLimiter } from '@socket.io/rate-limiter';
-
+// import { createAdapter } from '@socket.io/redis-adapter';
+// import { createClient } from 'redis';
+// import { createRateLimiter } from '@socket.io/rate-limiter';
 // Helper function for user status management
 async function updateUserStatus(userId, status) {
   try {
@@ -37,20 +32,23 @@ async function updateUserStatus(userId, status) {
     console.error('Error updating user status:', error);
   }
 }
-
 // Initialize express app and create HTTP server
 const app = express();
 const httpServer = createServer(app);
-
 // Initialize Socket.IO service
-const socketService = new SocketService(httpServer);
-
+// const socketService = new SocketService(httpServer); // Commented out, clarify initialization
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.NODE_ENV === 'production'
+      ? [process.env.FRONTEND_URL, 'https://shopify-dashboard-woad.vercel.app', 'http://localhost:8080']
+      : ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    credentials: true
+  }
+});
 // Make io accessible to route handlers
 app.set('io', io);
-
 // Enable trust proxy
 app.set('trust proxy', 1);
-
 // Configure CORS for frontend environments
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
@@ -60,17 +58,13 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
 // Set security headers with Helmet
 app.use(helmet());
-
 // Parse cookies
 app.use(cookieParser());
-
 // Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
-
   res.on('finish', () => {
     const duration = Date.now() - start;
     console.log({
@@ -83,16 +77,12 @@ app.use((req, res, next) => {
       userId: req.user?.uid
     });
   });
-
   next();
 });
-
 // Parse JSON request body
 app.use(express.json());
-
 // Parse URL-encoded request body
 app.use(express.urlencoded({ extended: true }));
-
 // Apply rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -100,7 +90,6 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again after 15 minutes'
 });
 app.use('/api', limiter);
-
 // Routes
 app.use('/api/products', productsRouter);
 app.use('/api/orders', orderRoutes);
@@ -113,7 +102,6 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/wishlist', wishlistRoutes);
-
 // Health check endpoints
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -124,7 +112,6 @@ app.get('/health', (req, res) => {
     cpu: process.cpuUsage()
   });
 });
-
 // API status endpoint
 app.get('/api/status', (req, res) => {
   res.status(200).json({
@@ -138,41 +125,50 @@ app.get('/api/status', (req, res) => {
     environment: process.env.NODE_ENV || 'development'
   });
 });
-
 // Root route
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to Shopify Server API' });
 });
-
 // Error monitoring and logging
 app.use((err, req, res, next) => {
   // Log error details
-  console.error('Error details:', {
+  const errorLog = {
     timestamp: new Date().toISOString(),
     path: req.path,
     method: req.method,
     errorMessage: err.message,
-    errorStack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     requestBody: req.body,
     requestQuery: req.query,
     userAgent: req.headers['user-agent'],
     userId: req.user?.uid
-  });
-
+  };
+  if (process.env.NODE_ENV === 'development') {
+    errorLog.errorStack = err.stack;
+  }
+  console.error('Error details:', errorLog);
   next(err);
 });
-
 // Error handling middleware
 app.use(errorHandler);
-
 // Load environment variables
 dotenv.config();
-
 // Start server
 const PORT = process.env.PORT || 10000;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
   console.log('Socket.IO is ready for connections');
 });
-
 export default app;
+// Example: Authenticated health check route using verifyToken
+app.get('/api/health-auth', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1] || req.cookies?.accessToken;
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    const decoded = await verifyToken(token);
+    res.status(200).json({ status: 'ok', user: decoded });
+  } catch (error) {
+    res.status(401).json({ message: 'Invalid or expired token', error: error.message });
+  }
+});

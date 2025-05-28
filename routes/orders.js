@@ -3,7 +3,7 @@ import { body } from 'express-validator';
 const router = express.Router();
 
 // Import Firebase config
-import { db } from '../config/firebase.js';
+import { db, admin } from '../config/firebase.js';
 
 // Import middleware
 import { validateRequest } from '../middleware/errorHandler.js';
@@ -158,18 +158,33 @@ router.post('/', [
       });
     }
 
-    // Create order in Firestore
-    const orderRef = await db.collection('orders').add({
-      userId: req.user.uid,
-      items: orderItems,
-      total,
-      status: 'pending',
-      shippingAddress,
-      notes: notes || '',
-      createdAt: new Date().toISOString()
+    // Create order in Firestore (with transaction)
+    const orderRef = db.collection('orders').doc();
+    await db.runTransaction(async (t) => {
+      // Validate and update stock for each item
+      for (const item of items) {
+        const productRef = db.collection('products').doc(item.productId);
+        const productDoc = await t.get(productRef);
+        if (!productDoc.exists) {
+          throw new Error(`Product ${item.productId} not found`);
+        }
+        const productData = productDoc.data();
+        if (productData.stockQuantity < item.quantity) {
+          throw new Error(`Not enough stock for ${productData.name}. Available: ${productData.stockQuantity}`);
+        }
+        t.update(productRef, { stockQuantity: productData.stockQuantity - item.quantity });
+      }
+      // Create order
+      t.set(orderRef, {
+        userId: req.user.uid,
+        items: orderItems,
+        total,
+        status: 'pending',
+        shippingAddress,
+        notes: notes || '',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
     });
-
-    // Get the created order
     const orderDoc = await orderRef.get();
 
     res.status(201).json({
@@ -206,10 +221,10 @@ router.put('/:id/status', [
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Update order status
+    // Update order status (with server timestamp)
     await db.collection('orders').doc(req.params.id).update({
       status,
-      updatedAt: new Date().toISOString(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedBy: req.user.uid
     });
 
