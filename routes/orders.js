@@ -3,7 +3,7 @@ import { body } from 'express-validator';
 const router = express.Router();
 
 // Import Firebase config
-import { db, admin } from '../config/firebase.js';
+import { db, firebaseAdmin } from '../config/firebase.js';
 
 // Import middleware
 import { validateRequest } from '../middleware/errorHandler.js';
@@ -182,7 +182,7 @@ router.post('/', [
         status: 'pending',
         shippingAddress,
         notes: notes || '',
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: firebaseAdmin.firestore.FieldValue.serverTimestamp()
       });
     });
     const orderDoc = await orderRef.get();
@@ -224,7 +224,7 @@ router.put('/:id/status', [
     // Update order status (with server timestamp)
     await db.collection('orders').doc(req.params.id).update({
       status,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebaseAdmin.firestore.FieldValue.serverTimestamp(),
       updatedBy: req.user.uid
     });
 
