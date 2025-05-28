@@ -14,7 +14,7 @@ import { protect, authorize } from '../middleware/auth.js';
  * @desc    Get all orders
  * @access  Private (Admin, Manager)
  */
-router.get('/', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
+router.get('/', protect, async (req, res, next) => {
   try {
     const ordersSnapshot = await db.collection('orders').get();
     const orders = [];
@@ -207,7 +207,6 @@ router.post('/', [
  */
 router.put('/:id/status', [
   protect,
-  authorize('admin', 'superadmin'),
   body('status').isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled'])
     .withMessage('Invalid status')
 ], validateRequest, async (req, res, next) => {
@@ -249,7 +248,7 @@ router.put('/:id/status', [
  * @desc    Delete an order
  * @access  Private (Admin)
  */
-router.delete('/:id', protect, authorize('admin,superadmin'), async (req, res, next) => {
+router.delete('/:id', protect, async (req, res, next) => {
   try {
     // Check if order exists
     const orderDoc = await db.collection('orders').doc(req.params.id).get();
