@@ -240,35 +240,16 @@ router.post('/refresh', async (req, res, next) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
     );
-    
     // Generate new refresh token with rotation for security
     const newRefreshToken = jwt.sign(
       { uid: user.uid },
       process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
     );
-    
-    // Set refresh token as HTTP-only cookie
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-site requests in production
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-    
-    // If client requests to store access token in cookie
-    if (storeTokenInCookie) {
-      res.cookie('accessToken', accessToken, {
-        httpOnly: true,
-        maxAge: 60 * 60 * 1000, // 1 hour
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-      });
-    }
-    
+
     // Log token refresh for audit purposes
     console.log(`Token refreshed for user ${user.uid} at ${new Date().toISOString()}`);
-    
+
     // Return the new access token
     res.status(200).json({
       success: true,
