@@ -2,6 +2,11 @@ import { auth, firebaseAdmin } from '../config/firebase.js';
 import jwt from 'jsonwebtoken';
 import { AppError } from './errorHandler.js';
 
+// Standalone function to verify JWT and return decoded payload
+export function verifyToken(token) {
+  return jwt.verify(token, process.env.JWT_SECRET);
+}
+
 // Middleware to verify JWT token
 export const protect = async (req, res, next) => {
   let token;
