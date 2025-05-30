@@ -96,7 +96,7 @@ router.put('/:id', [
   protect,
   body('name').optional().notEmpty().withMessage('Name cannot be empty'),
   body('email').optional().isEmail().withMessage('Please provide a valid email'),
-  body('role').optional().isIn(['admin', 'manager', 'staff']).withMessage('Invalid role')
+  body('role').optional().isIn(['admin', 'superadmin']).withMessage('Invalid role')
 ], validateRequest, async (req, res, next) => {
   try {
     // Check if user is authorized to update this profile
@@ -152,7 +152,7 @@ router.put('/:id', [
  * @desc    Delete a user
  * @access  Private (Admin)
  */
-router.delete('/:id', protect, authorize('admin'), async (req, res, next) => {
+router.delete('/:id', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     // Check if user exists
     const userDoc = await db.collection('users').doc(req.params.id).get();
@@ -187,7 +187,7 @@ router.post('/', [
   authorize('admin', 'superadmin'),
   body('email').isEmail().withMessage('Please provide a valid email'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('role').isIn(['admin', 'manager', 'staff']).withMessage('Invalid role')
+  body('role').isIn(['admin', 'superadmin']).withMessage('Invalid role')
 ], validateRequest, async (req, res, next) => {
   try {
     const { email, password, role } = req.body;

@@ -167,11 +167,11 @@ router.get('/:id', async (req, res, next) => {
 /**
  * @route   POST /api/products
  * @desc    Create a new product
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
 router.post('/', [
   protect,
-  authorize('admin', 'manager'),
+  authorize('admin', 'superadmin'),
   upload.array('images', 5),
   body('name').notEmpty().withMessage('Product name is required'),
   body('description').notEmpty().withMessage('Description is required'),
@@ -234,6 +234,15 @@ router.post('/', [
     // Get the created product
     const productDoc = await productRef.get();
 
+    // Emit Socket.IO event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('product:new', {
+        id: productDoc.id,
+        ...productDoc.data()
+      });
+    }
+
     res.status(201).json({
       success: true,
       data: {
@@ -250,11 +259,11 @@ router.post('/', [
 /**
  * @route   PUT /api/products/:id
  * @desc    Update a product
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
 router.put('/:id', [
   protect,
-  authorize('admin', 'manager'),
+  authorize('admin', 'superadmin'),
   body('name').optional().notEmpty().withMessage('Product name cannot be empty'),
   body('price').optional().isNumeric().withMessage('Price must be a number'),
   body('stockQuantity').optional().isInt({ min: 0 }).withMessage('Stock quantity must be a positive integer')
@@ -293,9 +302,9 @@ router.put('/:id', [
 /**
  * @route   DELETE /api/products/:id
  * @desc    Delete a product
- * @access  Private (Admin)
+ * @access  Private (Admin, Superadmin)
  */
-router.delete('/:id', protect, authorize('admin'), async (req, res, next) => {
+router.delete('/:id', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     // Check if product exists
     const productDoc = await db.collection('products').doc(req.params.id).get();
@@ -320,11 +329,11 @@ router.delete('/:id', protect, authorize('admin'), async (req, res, next) => {
 /**
  * @route   POST /api/products/bulk
  * @desc    Perform bulk operations on products
- * @access  Private (Admin)
+ * @access  Private (Admin , Superadmin)
  */
 router.post('/bulk', [
   protect,
-  authorize('admin'),
+  authorize('admin', 'superadmin'),
   body('action').isIn(['delete', 'update', 'updateStatus']).withMessage('Invalid action'),
   body('productIds').isArray().withMessage('Product IDs must be an array'),
   body('data').optional().isObject().withMessage('Update data must be an object')
@@ -405,11 +414,11 @@ router.post('/bulk', [
 /**
  * @route   POST /api/products/:id/variants
  * @desc    Add a variant to a product
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
 router.post('/:id/variants', [
   protect,
-  authorize('admin', 'manager'),
+  authorize('admin', 'superadmin'),
   body('name').notEmpty().withMessage('Variant name is required'),
   body('price').isNumeric().withMessage('Variant price must be a number'),
   body('stockQuantity').isInt({ min: 0 }).withMessage('Stock quantity must be a positive integer')
@@ -451,11 +460,11 @@ router.post('/:id/variants', [
 /**
  * @route   PUT /api/products/:id/variants/:variantId
  * @desc    Update a product variant
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
 router.put('/:id/variants/:variantId', [
   protect,
-  authorize('admin', 'manager'),
+  authorize('admin', 'superadmin'),
   body('price').optional().isNumeric().withMessage('Price must be a number'),
   body('stockQuantity').optional().isInt({ min: 0 }).withMessage('Stock quantity must be a positive integer')
 ], validateRequest, async (req, res, next) => {
@@ -500,9 +509,9 @@ router.put('/:id/variants/:variantId', [
 /**
  * @route   DELETE /api/products/:id/variants/:variantId
  * @desc    Delete a product variant
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
-router.delete('/:id/variants/:variantId', protect, authorize('admin', 'manager'), async (req, res, next) => {
+router.delete('/:id/variants/:variantId', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     const productDoc = await db.collection('products').doc(req.params.id).get();
     

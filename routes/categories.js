@@ -72,11 +72,11 @@ router.get('/:id', async (req, res, next) => {
 /**
  * @route   POST /api/categories
  * @desc    Create a new category
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
 router.post('/', [
   protect,
-  authorize('admin', 'manager'),
+  authorize('admin', 'superadmin'),
   body('name').notEmpty().withMessage('Category name is required'),
   body('description').optional(),
   body('slug').notEmpty().withMessage('Slug is required')
@@ -121,11 +121,11 @@ router.post('/', [
 /**
  * @route   PUT /api/categories/:id
  * @desc    Update category
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
 router.put('/:id', [
   protect,
-  authorize('admin', 'manager'),
+  authorize('admin', 'superadmin'),
   body('name').optional(),
   body('description').optional(),
   body('slug').optional()
@@ -181,11 +181,11 @@ router.put('/:id', [
 /**
  * @route   DELETE /api/categories/:id
  * @desc    Delete category
- * @access  Private (Admin)
+ * @access  Private (Admin, Superadmin)
  */
 router.delete('/:id', [
   protect,
-  authorize('admin')
+  authorize('admin', 'superadmin')
 ], async (req, res, next) => {
   try {
     const categoryDoc = await db.collection('categories').doc(req.params.id).get();

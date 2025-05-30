@@ -311,7 +311,7 @@ router.post('/logout', (req, res) => {
 
 /**
  * @route   POST /api/auth/admin/login
- * @desc    Login for admin, superadmin, and manager roles
+ * @desc    Login for admin, superadmin, roles
  * @access  Public
  */
 router.post('/admin/login', [
@@ -330,7 +330,7 @@ router.post('/admin/login', [
     const userRole = userData.data().role;
 
     // Check if user has admin privileges
-    if (!['admin', 'superadmin', 'manager'].includes(userRole)) {
+    if (!['admin', 'superadmin'].includes(userRole)) {
       throw new AppError('Unauthorized access. Admin privileges required.', 403);
     }
 

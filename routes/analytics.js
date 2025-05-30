@@ -10,10 +10,10 @@ import { protect, authorize } from '../middleware/auth.js';
 /**
  * @route   GET /api/analytics/sales
  * @desc    Get sales analytics
- * @access  Private (Admin, Manager, Superadmin)
+ * @access  Private (Admin, Superadmin)
  */
 // Enhance sales analytics with filtering and sorting
-router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
+router.get('/sales', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     const { period = 'month', sortBy = 'totalSales', order = 'desc' } = req.query;
     
@@ -95,7 +95,7 @@ router.get('/sales', protect, authorize('admin', 'manager', 'superadmin'), async
 });
 
 // Enhance product analytics with detailed metrics
-router.get('/products', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
+router.get('/products', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     const { sortBy = 'totalRevenue', order = 'desc' } = req.query;
     const productsSnapshot = await db.collection('products').get();
@@ -154,7 +154,7 @@ router.get('/products', protect, authorize('admin', 'manager', 'superadmin'), as
 });
 
 // Enhance customer analytics with detailed metrics
-router.get('/customers', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
+router.get('/customers', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     const { sortBy = 'totalSpent', order = 'desc' } = req.query;
     const ordersSnapshot = await db.collection('orders')
@@ -213,7 +213,7 @@ router.get('/customers', protect, authorize('admin', 'manager', 'superadmin'), a
 });
 
 // Enhance dashboard analytics with more metrics
-router.get('/dashboard', protect, authorize('admin', 'manager', 'superadmin'), async (req, res, next) => {
+router.get('/dashboard', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     // Get current date and start of current month
     const now = new Date();

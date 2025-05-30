@@ -12,7 +12,7 @@ import { protect, authorize } from '../middleware/auth.js';
 /**
  * @route   GET /api/inventory
  * @desc    Get inventory status for all products
- * @access  Private (Admin, Manager, Staff)
+ * @access  Private (Admin, Superadmin)
  */
 router.get('/', protect, async (req, res, next) => {
   try {
@@ -46,7 +46,7 @@ router.get('/', protect, async (req, res, next) => {
 /**
  * @route   GET /api/inventory/low-stock
  * @desc    Get products with low stock
- * @access  Private (Admin, Manager, Staff)
+ * @access  Private (Admin, Superadmin)
  */
 router.get('/low-stock', protect, async (req, res, next) => {
   try {
@@ -81,11 +81,11 @@ router.get('/low-stock', protect, async (req, res, next) => {
 /**
  * @route   PUT /api/inventory/:id
  * @desc    Update product inventory
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
 router.put('/:id', [
   protect,
-  authorize('admin', 'manager'),
+  authorize('admin', 'superadmin'),
   body('stockQuantity').isInt({ min: 0 }).withMessage('Stock quantity must be a positive integer')
 ], validateRequest, async (req, res, next) => {
   try {
@@ -128,11 +128,11 @@ router.put('/:id', [
 /**
  * @route   POST /api/inventory/bulk-update
  * @desc    Bulk update product inventory
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
 router.post('/bulk-update', [
   protect,
-  authorize('admin', 'manager'),
+  authorize('admin', 'superadmin'),
   body('items').isArray().withMessage('Items must be an array'),
   body('items.*.productId').notEmpty().withMessage('Product ID is required'),
   body('items.*.stockQuantity').isInt({ min: 0 }).withMessage('Stock quantity must be a positive integer')
@@ -183,9 +183,9 @@ router.post('/bulk-update', [
 /**
  * @route   GET /api/inventory/history/:id
  * @desc    Get inventory history for a product
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
-router.get('/history/:id', protect, authorize('admin', 'manager'), async (req, res, next) => {
+router.get('/history/:id', protect, authorize('admin', 'superadmin'), async (req, res, next) => {
   try {
     // Check if product exists
     const productDoc = await db.collection('products').doc(req.params.id).get();

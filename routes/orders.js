@@ -12,7 +12,7 @@ import { protect, authorize } from '../middleware/auth.js';
 /**
  * @route   GET /api/orders
  * @desc    Get all orders
- * @access  Private (Admin, Manager)
+ * @access 
  */
 router.get('/', protect, async (req, res, next) => {
   try {
@@ -203,10 +203,11 @@ router.post('/', [
 /**
  * @route   PUT /api/orders/:id/status
  * @desc    Update order status
- * @access  Private (Admin, Manager)
+ * @access  Private (Admin, Superadmin)
  */
 router.put('/:id/status', [
   protect,
+  authorize('admin', 'superadmin'),
   body('status').isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled'])
     .withMessage('Invalid status')
 ], validateRequest, async (req, res, next) => {

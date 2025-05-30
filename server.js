@@ -19,7 +19,7 @@ import paymentsRoutes from './routes/payments.js';
 import wishlistRoutes from './routes/wishlist.js';
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
-import { protect, authorize } from './middleware/auth.js';
+import { verifyToken } from './middleware/auth.js';
 // import { createAdapter } from '@socket.io/redis-adapter';
 // import { createClient } from 'redis';
 // import { createRateLimiter } from '@socket.io/rate-limiter';

@@ -7,7 +7,7 @@ A Node.js backend server for Shopify with Express.js and Firebase integration. T
 - **Authentication & Authorization**
   - Firebase Authentication integration
   - JWT middleware for protected routes
-  - Role-based access control (Admin, Manager, Staff)
+  - Role-based access control (Admin, Superadmin)
   - Session management
 
 - **API Endpoints**
@@ -161,17 +161,17 @@ npm start
 
 - `GET /api/products` - Get all products
 - `GET /api/products/:id` - Get single product
-- `POST /api/products` - Create a new product (Admin, Manager)
-- `PUT /api/products/:id` - Update product (Admin, Manager)
-- `DELETE /api/products/:id` - Delete product (Admin)
+- `POST /api/products` - Create a new product (Admin, Superadmin)
+- `PUT /api/products/:id` - Update product (Admin, Superadmin)
+- `DELETE /api/products/:id` - Delete product (Admin, Superadmin)
 
 ### Categories
 
 - `GET /api/categories` - Get all categories
 - `GET /api/categories/:id` - Get single category
-- `POST /api/categories` - Create a new category (Admin, Manager)
-- `PUT /api/categories/:id` - Update category (Admin, Manager)
-- `DELETE /api/categories/:id` - Delete category (Admin)
+- `POST /api/categories` - Create a new category (Admin, Superadmin)
+- `PUT /api/categories/:id` - Update category (Admin, Superadmin)
+- `DELETE /api/categories/:id` - Delete category (Admin, Superadmin)
 - `GET /api/categories/:id/products` - Get all products in a category
 
 ### Cart
@@ -184,13 +184,13 @@ npm start
 
 ### Orders
 
-- `GET /api/orders` - Get all orders (Admin, Superadmin, Manager)
+- `GET /api/orders` - Get all orders (Admin, Superadmin)
 - `GET /api/orders/my-orders` - Get orders for current user
 - `GET /api/orders/:id` - Get single order
 - `POST /api/orders` - Create a new order
-- `PUT /api/orders/:id/status` - Update order status (Admin, Superadmin, Manager)
+- `PUT /api/orders/:id/status` - Update order status (Admin, Superadmin)
 - `DELETE /api/orders/:id` - Cancel order (Admin, Superadmin or order owner)
-- `GET /api/orders` - Get all orders (Superadmin, Admin, Manager)
+- `GET /api/orders` - Get all orders (Superadmin, Admin)
 - `GET /api/orders/my-orders` - Get orders for the current user
 - `DELETE /api/orders/:id` - Delete an order (Superadmin, Admin)
 
@@ -218,39 +218,39 @@ npm start
 - `DELETE /api/profile/payment-methods/:id` - Delete payment method
 - `GET /api/profile/orders` - Get user's order history with pagination
 
-### Analytics (Superadmin, Admin, Manager)
+### Analytics (Superadmin, Admin)
 
 - `GET /api/analytics/sales` - Get sales analytics by period (day, week, month, year)
 - `GET /api/analytics/products` - Get product performance analytics
 - `GET /api/analytics/customers` - Get customer analytics
 - `GET /api/analytics/dashboard` - Get dashboard overview statistics
-- `GET /api/analytics/sales` - Get sales analytics (Superadmin, Admin, Manager)
-- `GET /api/analytics/inventory` - Get inventory analytics (Superadmin, Admin, Manager)
+- `GET /api/analytics/sales` - Get sales analytics (Superadmin, Admin)
+- `GET /api/analytics/inventory` - Get inventory analytics (Superadmin, Admin)
 - `GET /api/analytics/users` - Get user analytics (Superadmin, Admin)
 
 ### Inventory Management
 
-- `GET /api/inventory` - Get inventory status for all products (Superadmin, Admin, Manager, Staff)
-- `GET /api/inventory/low-stock` - Get products with low stock (Superadmin, Admin, Manager, Staff)
-- `PUT /api/inventory/:id` - Update product inventory (Superadmin,vAdmin, Manager)
-- `POST /api/inventory/bulk-update` - Bulk update inventory (Superadmin, Admin, Manager)
-- `POST /api/inventory/stock-alert` - Configure stock alert thresholds (Superadmin, Admin, Manager)
+- `GET /api/inventory` - Get inventory status for all products (Superadmin, Admin)
+- `GET /api/inventory/low-stock` - Get products with low stock (Superadmin, Admin)
+- `PUT /api/inventory/:id` - Update product inventory (Superadmin,vAdmin)
+- `POST /api/inventory/bulk-update` - Bulk update inventory (Superadmin, Admin)
+- `POST /api/inventory/stock-alert` - Configure stock alert thresholds (Superadmin, Admin)
 
 ### Products
 
 - `GET /api/products` - Get all products
 - `GET /api/products/:id` - Get single product
-- `POST /api/products` - Create a new product (Superadmin, Admin, Manager)
-- `PUT /api/products/:id` - Update a product (Superadmin, Admin, Manager)
+- `POST /api/products` - Create a new product (Superadmin, Admin)
+- `PUT /api/products/:id` - Update a product (Superadmin, Admin)
 - `DELETE /api/products/:id` - Delete a product (Superadmin, Admin)
 
 ### Inventory
 
 - `GET /api/inventory` - Get inventory status for all products
 - `GET /api/inventory/low-stock` - Get products with low stock
-- `PUT /api/inventory/:id` - Update product inventory (Superadmin, Admin, Manager)
-- `POST /api/inventory/bulk-update` - Bulk update product inventory (Superadmin, Admin, Manager)
-- `GET /api/inventory/history/:id` - Get inventory history for a product (Superadmin, Admin, Manager)
+- `PUT /api/inventory/:id` - Update product inventory (Superadmin, Admin)
+- `POST /api/inventory/bulk-update` - Bulk update product inventory (Superadmin, Admin)
+- `GET /api/inventory/history/:id` - Get inventory history for a product (Superadmin, Admin)
 
 ### Payments
 - POST /api/payments/initialize - Initializes a payment transaction with Paystack
