@@ -331,4 +331,33 @@ router.delete('/', protect, async (req, res, next) => {
   }
 });
 
+/**
+ * @route   POST /api/cart/guest
+ * @desc    Create a guest cart
+ * @access  Public
+ */
+router.post('/guest', async (req, res) => {
+  try {
+    // Generate a unique guest cart ID
+    const guestCartId = 'guest_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+    const cartData = {
+      cartId: guestCartId,
+      items: [],
+      createdAt: new Date().toISOString(),
+      isGuest: true
+    };
+    // Store the guest cart in Firestore
+    await db.collection('carts').doc(guestCartId).set(cartData);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Guest cart created',
+      data: cartData
+    });
+  } catch (error) {
+    console.error('Create guest cart error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to create guest cart', error: error.message });
+  }
+});
+
 export default router;
